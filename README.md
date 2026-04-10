@@ -1,31 +1,42 @@
 # Cubescape
 Small Puzzle Game for playing while lessons
-## Ideen
+
+## Allgemein
 - Umkippen 
 - Die Form des Spielsteins ist levelabhängig
-- "Effects" fuer verschiedene Seiten auswaehlen
-- Spielstein != Stein: Spielstein -> der Spieler/-in; Stein  -> Hindernisse.  
+- "Effekte" fuer verschiedene Seiten auswaehlen
+- keine Grenze fuer die Nutzung von Effekten
 - Perspektive
 - Kamera: (yaw?) (in blender steine)-50 Grad gedreht; roll 0; pitch:?
+- Kamera folgt spieler
+- Level Editor
+- Voxel aussehen. Feste 3d Modelle, die immer gleich bleiben(statisch)
+- Spielstein, besteht aus mehreren 3D Modellen(Seiten), die zusammengesetzt werden
+- Kein Undo, sondern feste Checkpoints bei langen Levels
+- Kronen-System: 3 Kronen wenn man die von uns festgelegte Route findet; 2 Kronen: x bis y Zuege; 1 Krone: Level geschafft; 5 Kronen: man hat eine kuerzere Route als wir gefunden
+- Levels in Ebenen gruppieren. Man kann zur naechste Ebene, nur wenn mann genug Kronen hat
+- Effekten werden nicht vor dem Start des Levels gewaehlt, sondern (auf dem Boden) im Level gefunden und dann auf einer Seite "geklebt"
 
 ## Steine/Hindernisse 
-- Spikes
+- Spikes, man stirbt sofort, es sei denn, man hat Ruestung auf die Seite, mit der man auf dem Stein tritt
 - Bewegliche Steine
-- loch
-- stein
-- (?) Verwirrungs-Stein, der die Steuerung vorübergehend ändert, rechts wird links , vorne wird hinten
-- (?) Fog Of War
-## Effects
+- Loch
+- Stein (einfache Wand)
+-  Verwirrungs-Stein, der die Steuerung vorübergehend ändert, rechts wird links , vorne wird hinten. Leicht versteckt.Nachdem man dadrauf getreten ist, kann man den Stein sehen 
+
+
+
+
+## Effekte
 - Portal -> Man kann bestimmte Steine "ignorieren" 
-- Ruestung -> Man kriegt kein/weniger Schaden bzw. nicht stirbt
-- 
+- Ruestung -> Man stirbt nicht,wenn man auf z.B. einem Spike tritt . Es gibt zwei Arten: einmalige und permanente Ruestung
+-  
+
+## Vielleicht 
+- Hotkey zum Kamera vom Spieler lösen, um das Level anzuschauen
+- (?) Fog Of War (Stein-Effekt oder immer)
 
 
 
+Anmerkung: Spielstein != Stein: Spielstein -> der Spieler/-in; Stein  -> Hindernisse.  
 ## Offene Fragen
-- HP oder sofort Sterben ?
-- Kann man Effects unendlich benutzen?oder gibt es ein Cooldown? oder etwas wie Mana,Ressourcen, die man verbrauch? -> Werden immer aktiviert, wenn man uaf die Seite geht --> Darf nicht zu overpowered sein. -- > Vielleicht einige Overpowered aber haben auch Nachteile
-- Level Editor auch programmieren? -> Würde sich auf lange Sicht sicherlich lohnen, aber erstmal Engine
-- Voxels: dynamisch(Voxels des Steins werden während des Spiels geändert/zerstört/erstellt/bewegt) oder statisch( Ein 3D Modell, das wie Voxels aussieht, aber man nicht ändern kann)? --> Bei dynamisch Voxels, bei Statisch nicht?
-- Kamera folgt den Spieler? oder fest? --> Folgt spieler da größere Level dann auch machbar sind --> Hotkey zum Kamera vom Spieler lösen, um das Level anzuschauen??? --> Wie die Karte im Factoryo? 
-- Undo?-->Das Spiel darf nicht zu einfach sein. Wenn man alles rückgängig machen kann, dann gibt's keine Herausforderung. Vielleicht begrenzt?
