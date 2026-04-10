@@ -2,6 +2,8 @@
 Small Puzzle Game for playing while lessons
 
 ## Allgemein
+
+### Funktionsweise
 - Umkippen 
 - Die Form des Spielsteins ist levelabhängig
 - keine Grenze fuer die Nutzung von Effekten
@@ -16,9 +18,14 @@ Small Puzzle Game for playing while lessons
 - Levels in Ebenen gruppieren. Man kann zur naechste Ebene, nur wenn mann genug Kronen hat
 - Effekten werden nicht vor dem Start des Levels gewaehlt, sondern (auf dem Boden) im Level gefunden und dann auf einer Seite "geklebt"
 
+### Quality Of Life Features
+- GUI, um zu zeigen, was fuer Effekten auf welcher Seite man hat
+
+
+
 ## Steine/Hindernisse 
 - Spikes, man stirbt sofort, es sei denn, man hat Ruestung auf die Seite, mit der man auf dem Stein tritt
-- Bewegliche Steine
+- Bewegliche Steine/Barriere
 - Loch
 - Stein (einfache Wand)
 -  Verwirrungs-Stein, der die Steuerung vorübergehend ändert, rechts wird links , vorne wird hinten. Leicht versteckt.Nachdem man dadrauf getreten ist, kann man den Stein sehen 
@@ -28,12 +35,11 @@ Small Puzzle Game for playing while lessons
 ## Effekte
 - Portal -> Man kann bestimmte Steine "ignorieren" 
 - Ruestung -> Man stirbt nicht,wenn man auf z.B. einem Spike tritt . Es gibt zwei Arten: einmalige und permanente Ruestung
-- Dash -> Man Dasht 2 Felder weiter, überspringt also eins nach dem umkippen. -> in diesem ZUg 3 Felder gegangen --> Overpowered?
+- Dash -> Man Dasht 2 Felder weiter, überspringt also eins nach dem umkippen. -> in diesem Zug 3 Felder gegangen --> Overpowered?
 
 ## Vielleicht 
 - Hotkey zum Kamera vom Spieler lösen, um das Level anzuschauen
-- (?) Fog Of War (Stein-Effekt oder immer)
-- GUI, um zu zeigen, was fuer Effekten auf welcher Seite man hat
+
 
 
 
