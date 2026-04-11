@@ -19,6 +19,8 @@ fn getDefaultHeight() u32 {
 pub const Window = struct {
     width: u32,
     height: u32,
+    initial_width: u32,
+    initial_height: u32,
     allocator: std.mem.Allocator,
 
     pub fn init(allocator: std.mem.Allocator, params: WindowParams) !*Window {
@@ -27,6 +29,7 @@ pub const Window = struct {
 
         rl.setConfigFlags(.{
             .vsync_hint = true,
+            .window_resizable = true,
             // More Optins here
         });
 
@@ -42,6 +45,8 @@ pub const Window = struct {
         self.* = Window{
             .width = width,
             .height = height,
+            .initial_width = width,
+            .initial_height = height,
             .allocator = allocator,
         };
         return self;
@@ -67,9 +72,30 @@ pub const Window = struct {
         return rl.getTime();
     }
 
-    pub fn getSize(self: *Window) void {
+    pub fn syncSize(self: *Window) void {
         self.width = @intCast(rl.getScreenWidth());
         self.height = @intCast(rl.getScreenHeight());
+    }
+
+    pub fn getWidth(self: *const Window) u32 {
+        return self.width;
+    }
+
+    pub fn getHeight(self: *const Window) u32 {
+        return self.height;
+    }
+
+    pub fn getInitialWidth(self: *const Window) u32 {
+        return self.initial_width;
+    }
+
+    pub fn getInitialHeight(self: *const Window) u32 {
+        return self.initial_height;
+    }
+
+    pub fn isResized(self: *Window) bool {
+        _ = self;
+        return rl.isWindowResized();
     }
 
     pub fn deinit(self: *Window) void {

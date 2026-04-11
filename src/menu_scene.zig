@@ -23,10 +23,9 @@ pub const MenuScene = struct {
             try context.switchTo(SceneId.game);
             return;
         }
-
-        rl.beginDrawing();
         rl.clearBackground(.blue);
-        defer rl.endDrawing();
+        rl.drawText("Menu Scene", 40, 40, 64, .white);
+        rl.drawText("Press Enter to start the game.", 40, 120, 36, .white);
     }
 
     pub fn onCleanup(self: *MenuScene, context: *SceneContext) anyerror!void {

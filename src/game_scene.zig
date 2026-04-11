@@ -27,10 +27,10 @@ pub const GameScene = struct {
             try context.switchTo(SceneId.menu);
             return;
         }
-
-        rl.beginDrawing();
         rl.clearBackground(.white);
-        defer rl.endDrawing();
+        rl.drawText("Game Scene", 40, 40, 64, .black);
+        rl.drawText("Resize the window: content scales with it.", 40, 120, 36, .dark_gray);
+        rl.drawText("Press M to return to the menu.", 40, 170, 36, .dark_gray);
     }
 
     pub fn onCleanup(self: *GameScene, context: *SceneContext) anyerror!void {

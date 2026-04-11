@@ -2,6 +2,7 @@ const std = @import("std");
 const SceneContext = @import("context.zig").SceneContext;
 const SceneId = @import("id.zig").SceneId;
 const Scene = @import("scene.zig").Scene;
+const Window = @import("../core/window.zig").Window;
 
 pub const SceneManagerError = error{
     OutOfMemory,
@@ -10,16 +11,18 @@ pub const SceneManagerError = error{
 
 pub const SceneManager = struct {
     scenes: std.ArrayList(Scene),
+    window: *Window,
     allocator: std.mem.Allocator,
     active_scene_index: usize,
 
-    pub fn init(allocator: std.mem.Allocator) SceneManagerError!*SceneManager {
+    pub fn init(allocator: std.mem.Allocator, window: *Window) SceneManagerError!*SceneManager {
         const manager = allocator.create(SceneManager) catch |err| {
             std.log.err("Failed to allocate SceneManager: {}", .{err});
             return SceneManagerError.OutOfMemory;
         };
 
         manager.* = SceneManager{
+            .window = window,
             .allocator = allocator,
             .scenes = .empty,
             .active_scene_index = 0,
@@ -46,6 +49,7 @@ pub const SceneManager = struct {
     fn makeContext(self: *SceneManager) SceneContext {
         return .{
             .allocator = self.allocator,
+            .window = self.window,
             .ptr = self,
             .switch_scene_fn = switchSceneFromContext,
         };
