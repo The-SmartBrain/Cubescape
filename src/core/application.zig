@@ -1,7 +1,7 @@
 const std = @import("std");
 
+const SceneId = @import("../scene/id.zig").SceneId;
 const SceneManager = @import("../scene/manager.zig").SceneManager;
-const Scene = @import("../scene/scene.zig").Scene;
 
 const Time = @import("time.zig").Time;
 const win = @import("window.zig");
@@ -59,8 +59,8 @@ pub const Application = struct {
         self.allocator.destroy(self);
     }
 
-    pub fn pushScene(self: *Application, comptime scene: type, is_active: bool) void {
-        self.scene_manager.addScene(scene, is_active) catch |err| {
+    pub fn pushScene(self: *Application, comptime scene: type, scene_id: SceneId, is_active: bool) void {
+        self.scene_manager.addScene(scene, scene_id, is_active) catch |err| {
             std.log.err("Failed to push Scene: {}", .{err});
             return;
         };
