@@ -30,7 +30,8 @@ pub const MenuScene = struct {
     }
 
     pub fn onCleanup(self: *MenuScene, context: *SceneContext) anyerror!void {
-        context.allocator.destroy(self);
-        std.log.info("Menu Scene Cleaning up...", .{});
+        _ = context;
+        _ = self;
+        std.log.info("Game Scene Cleaning up...", .{});
     }
 };
