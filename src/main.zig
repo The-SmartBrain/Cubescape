@@ -8,7 +8,7 @@ const SceneId = @import("scene/id.zig").SceneId;
 
 pub fn main() void {
     var gpa_impl = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa_impl.deinit();
+    defer if (gpa_impl.deinit() == .leak) @panic("leaked");
     const gpa = gpa_impl.allocator();
 
     const app = Application.init(gpa, .{

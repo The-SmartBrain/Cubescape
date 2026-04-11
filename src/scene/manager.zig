@@ -30,8 +30,9 @@ pub const SceneManager = struct {
 
     pub fn deinit(self: *SceneManager) void {
         var context = self.makeContext();
-        const active_scene = self.getActiveScene();
-        active_scene.onCleanup(&context) catch |err| std.log.err("Scene Cleanup failed: {}", .{err});
+        for (self.scenes.items) |*scene| {
+            scene.onCleanup(&context) catch |err| std.log.err("Scene Cleanup failed: {}", .{err});
+        }
         self.scenes.deinit(self.allocator);
         self.allocator.destroy(self);
     }
