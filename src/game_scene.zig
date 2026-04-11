@@ -31,34 +31,53 @@ pub const GameScene = struct {
             .fovy = 35.0,
             .projection = .perspective,
         };
+        self.player = try .init();
+
+        self.camera.target = .{ .x = self.player.position.x, .y = 0, .z = self.player.position.z };
+        self.camera.position = .{
+            .x = self.player.position.x + (distance * @cos(pitch_rad) * @sin(yaw_rad)),
+            .y = distance * @sin(pitch_rad),
+            .z = self.player.position.z + (distance * @cos(pitch_rad) * @cos(yaw_rad)),
+        };
 
         // Init Scene here --> Läuft EINMAL beim Start
     }
 
     pub fn onUpdate(self: *GameScene, context: *SceneContext, delta_time: f32) anyerror!void {
         // main Loop
-        _ = delta_time;
         const player: *Player = &self.player;
 
         try self.getInput(context);
+        player.animate(delta_time);
 
         // Kamera-Berechnung
-        self.camera.target = .{ .x = self.player.transform.x, .y = 0, .z = self.player.transform.z };
-        self.camera.position = .{
-            .x = player.transform.x + (distance * @cos(pitch_rad) * @sin(yaw_rad)),
-            .y = distance * @sin(pitch_rad),
-            .z = player.transform.z + (distance * @cos(pitch_rad) * @cos(yaw_rad)),
-        };
-
-        rl.beginDrawing();
+        //self.camera.target = .{ .x = self.player.position.x, .y = 0, .z = self.player.position.z };
+        //        self.camera.position = .{
+        //            .x = player.position.x + (distance * @cos(pitch_rad) * @sin(yaw_rad)),
+        //            .y = distance * @sin(pitch_rad),
+        //            .z = player.position.z + (distance * @cos(pitch_rad) * @cos(yaw_rad)),
+        //        };
+        //
         rl.clearBackground(.white);
-        defer rl.endDrawing();
         {
             self.camera.begin();
             defer self.camera.end();
             rl.drawGrid(20, 1.0);
+
+            const pos = rl.Vector3{ .x = player.position.x + 0.5, .y = player.position.y + 0.5, .z = player.position.z + 0.5 };
+            rl.drawModel(player.model, pos, 0.5, .white);
         }
-        rl.drawText(rl.textFormat("Aktuelle Unterseite (ID)", .{}), 10, 40, 20, .red);
+        rl.drawText(rl.textFormat("Aktuelle Unterseite: %f %f %f %f", .{ player.edges[0], player.edges[1], player.edges[2], player.edges[3] }), 10, 40, 20, .red);
+        rl.drawText(rl.textFormat("Aktuelle Drehung: %f %f %f ", .{
+            player.rotation.x,
+            player.rotation.y,
+            player.rotation.z,
+        }), 10, 60, 20, .red);
+        rl.drawText(rl.textFormat("Aktuelle position: %f %f %f ", .{
+            player.position.x,
+            player.position.y,
+            player.position.z,
+        }), 10, 80, 20, .red);
     }
 
     pub fn onCleanup(self: *GameScene, context: *SceneContext) anyerror!void {
@@ -73,16 +92,16 @@ pub const GameScene = struct {
             return;
         }
         if (rl.isKeyPressed(.up)) {
-            self.player.transform.x -= 1;
+            self.player.roll(.north);
         }
         if (rl.isKeyPressed(.down)) {
-            self.player.transform.x += 1;
+            self.player.roll(.south);
         }
         if (rl.isKeyPressed(.left)) {
-            self.player.transform.z += 1;
+            self.player.roll(.west);
         }
         if (rl.isKeyPressed(.right)) {
-            self.player.transform.z -= 1;
+            self.player.roll(.east);
         }
     }
 };
