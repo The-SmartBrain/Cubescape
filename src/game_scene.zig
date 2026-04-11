@@ -34,7 +34,8 @@ pub const GameScene = struct {
     }
 
     pub fn onCleanup(self: *GameScene, context: *SceneContext) anyerror!void {
-        context.allocator.destroy(self);
+        _ = context;
+        _ = self;
         std.log.info("Game Scene Cleaning up...", .{});
     }
 };

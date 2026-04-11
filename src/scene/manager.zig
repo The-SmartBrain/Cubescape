@@ -30,9 +30,11 @@ pub const SceneManager = struct {
 
     pub fn deinit(self: *SceneManager) void {
         var context = self.makeContext();
+
         for (self.scenes.items) |*scene| {
-            scene.onCleanup(&context) catch |err| std.log.err("Scene Cleanup failed: {}", .{err});
+            scene.deinit(self.allocator, &context);
         }
+
         self.scenes.deinit(self.allocator);
         self.allocator.destroy(self);
     }
@@ -60,6 +62,8 @@ pub const SceneManager = struct {
         };
 
         self.scenes.append(self.allocator, s) catch {
+            var scene_to_destroy = s;
+            scene_to_destroy.destroy(self.allocator);
             return SceneManagerError.OutOfMemory;
         };
 

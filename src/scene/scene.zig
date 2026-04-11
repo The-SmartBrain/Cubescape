@@ -11,11 +11,13 @@ pub const Scene = struct {
     vtable: *const VTable,
     id: SceneId,
     is_active: bool,
+    is_initialized: bool,
 
     const VTable = struct {
         onStartup: *const fn (ptr: *anyopaque, context: *SceneContext) anyerror!void,
         onUpdate: *const fn (ptr: *anyopaque, context: *SceneContext, delta_time: f32) anyerror!void,
         onCleanup: *const fn (ptr: *anyopaque, context: *SceneContext) anyerror!void,
+        destroy: *const fn (ptr: *anyopaque, allocator: std.mem.Allocator) void,
     };
 
     pub fn init(
@@ -41,6 +43,11 @@ pub const Scene = struct {
                 const self: *T = @ptrCast(@alignCast(ptr));
                 try T.onCleanup(self, context);
             }
+
+            fn destroy(ptr: *anyopaque, alloc: std.mem.Allocator) void {
+                const self: *T = @ptrCast(@alignCast(ptr));
+                alloc.destroy(self);
+            }
         };
 
         const instance = allocator.create(T) catch |err| {
@@ -55,13 +62,16 @@ pub const Scene = struct {
                 .onStartup = gen.onStartup,
                 .onUpdate = gen.onUpdate,
                 .onCleanup = gen.onCleanup,
+                .destroy = gen.destroy,
             },
             .is_active = is_active,
+            .is_initialized = false,
         };
     }
 
     pub fn onStartup(self: *Scene, context: *SceneContext) !void {
         try self.vtable.onStartup(self.ptr, context);
+        self.is_initialized = true;
     }
 
     pub fn onUpdate(self: *Scene, context: *SceneContext, delta_time: f32) !void {
@@ -69,7 +79,21 @@ pub const Scene = struct {
     }
 
     pub fn onCleanup(self: *Scene, context: *SceneContext) !void {
+        if (!self.is_initialized) {
+            return;
+        }
+
         try self.vtable.onCleanup(self.ptr, context);
+        self.is_initialized = false;
+    }
+
+    pub fn destroy(self: *Scene, allocator: std.mem.Allocator) void {
+        self.vtable.destroy(self.ptr, allocator);
+    }
+
+    pub fn deinit(self: *Scene, allocator: std.mem.Allocator, context: *SceneContext) void {
+        self.onCleanup(context) catch |err| std.log.err("Scene Cleanup failed: {}", .{err});
+        self.destroy(allocator);
     }
 };
 
