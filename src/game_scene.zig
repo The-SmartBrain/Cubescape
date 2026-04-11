@@ -3,6 +3,10 @@ const rl = @import("raylib");
 const SceneContext = @import("scene/context.zig").SceneContext;
 const SceneId = @import("scene/id.zig").SceneId;
 
+// Zum Szenenwechsel:
+// try context.switchTo(SceneID.menu); // setzt Context zum Wechseln
+// return; //"Stoppt" Den Update-Loop
+
 pub const GameScene = struct {
     allocator: std.mem.Allocator,
 
