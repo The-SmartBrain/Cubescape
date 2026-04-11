@@ -52,7 +52,7 @@ pub const Scene = struct {
 
         const instance = allocator.create(T) catch |err| {
             std.log.err("Failed to allocate scene instance: {}", .{err});
-            return SceneError.OutOfMemory;
+            return err;
         };
 
         return .{
