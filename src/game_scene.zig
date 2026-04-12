@@ -25,7 +25,7 @@ pub const GameScene = struct {
         self.allocator = context.allocator;
 
         self.camera = rl.Camera3D{
-            .position = .{ .x = 0, .y = 0, .z = 0 },
+            .position = .{ .x = 0, .y = 1, .z = -10 },
             .target = .{ .x = 0, .y = 0, .z = 0 },
             .up = .{ .x = 0.0, .y = 1.0, .z = 0.0 },
             .fovy = 35.0,
@@ -33,12 +33,12 @@ pub const GameScene = struct {
         };
         self.player = try .init();
 
-        self.camera.target = .{ .x = self.player.position.x, .y = 0, .z = self.player.position.z };
-        self.camera.position = .{
-            .x = self.player.position.x + (distance * @cos(pitch_rad) * @sin(yaw_rad)),
-            .y = distance * @sin(pitch_rad),
-            .z = self.player.position.z + (distance * @cos(pitch_rad) * @cos(yaw_rad)),
-        };
+        self.camera.target = .{ .x = self.player.position.x, .y = 1, .z = self.player.position.z };
+        //        self.camera.position = .{
+        //            .x = self.player.position.x + (distance * @cos(pitch_rad) * @sin(yaw_rad)),
+        //            .y = distance * @sin(pitch_rad),
+        //            .z = self.player.position.z + (distance * @cos(pitch_rad) * @cos(yaw_rad)),
+        //        };
 
         // Init Scene here --> Läuft EINMAL beim Start
     }
@@ -64,7 +64,7 @@ pub const GameScene = struct {
             defer self.camera.end();
             rl.drawGrid(20, 1.0);
 
-            rl.drawModel(player.model, player.position.as_RaylibVec3(), 0.5, .white);
+            rl.drawModel(player.model, player.position.as_RaylibVec3(), 1, .white);
         }
         rl.drawText(rl.textFormat("Aktuelle Unterseite: %f %f %f %f", .{ player.edges[0], player.edges[6], player.edges[2], player.edges[3] }), 10, 40, 20, .red);
         rl.drawText(rl.textFormat("Aktuelle Drehung: %f %f %f ", .{
@@ -101,6 +101,20 @@ pub const GameScene = struct {
         }
         if (rl.isKeyPressed(.right)) {
             self.player.roll(.east);
+        }
+
+        if (rl.isKeyPressed(.space)) {
+            if (self.camera.position.z == 10) {
+                self.camera.position = .{
+                    .x = self.player.position.x + (distance * @cos(pitch_rad) * @sin(yaw_rad)),
+                    .y = distance * @sin(pitch_rad),
+                    .z = self.player.position.z + (distance * @cos(pitch_rad) * @cos(yaw_rad)),
+                };
+                self.camera.target = .{ .x = self.player.position.x, .y = 0, .z = self.player.position.z };
+            } else {
+                self.camera.target = .{ .x = self.player.position.x, .y = 1, .z = self.player.position.z };
+                self.camera.position = .{ .x = 0, .y = 0.5, .z = 10 };
+            }
         }
     }
 };

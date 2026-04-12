@@ -7,7 +7,8 @@ const PlayerTexturePath = "assets/player_texture.png";
 
 pub const Player = struct {
     pub const Animation = union(enum) {
-        Rolling: struct { prev: Transform, old_edges: [12]f32, dir: Direction },
+        pub const RollingData = struct { st_model: rl.Model, starting_origin: Transform, rotation: Transform, old_edges: [12]f32, dir: Direction };
+        Rolling: RollingData,
         None: struct {},
     };
 
@@ -21,7 +22,7 @@ pub const Player = struct {
 
     pub fn init() !Player {
         var player: Player = undefined;
-        player.position = .zeros();
+        player.position = .{ .x = 0, .y = 1, .z = 0 };
         player.rotation = .zeros();
         player.current_animation = .None;
         //        player.model = try rl.loadModel(PlayerModelPath);
@@ -102,56 +103,69 @@ pub const Player = struct {
                 new_edges[9] = self.edges[11];
             },
         }
-        self.current_animation = .{ .Rolling = .{ .prev = self.rotation, .old_edges = self.edges, .dir = dir } };
+        self.current_animation = .{ .Rolling = .{ .st_model = self.model, .starting_origin = self.position, .rotation = self.rotation, .old_edges = self.edges, .dir = dir } };
         self.edges = new_edges;
     }
 
     pub fn animate(self: *Player, dt: f32) void {
         switch (self.current_animation) {
-            .Rolling => |data| self.animate_rotation(data.dir, data.prev, data.old_edges, dt),
+            .Rolling => |data| self.animate_rotation(data, dt),
             .None => return,
         }
     }
-    fn animate_rotation(self: *Player, dir: Direction, prev: Transform, edges: [12]f32, dt: f32) void {
+    fn animate_rotation(self: *Player, data: Animation.RollingData, dt: f32) void {
         const Rotation_Delta_Deg = 340 * dt; // sweetspot;
 
-        _ = edges;
-        switch (dir) {
+        const st_rotation = data.rotation;
+        var matrix: rl.Matrix = .identity();
+        switch (data.dir) {
             .north => {
                 self.rotation.z = add_wrap(self.rotation.z, Rotation_Delta_Deg);
 
-                if (check_wrap_margin(self.rotation.z, prev.z + 90, 2)) {
-                    self.rotation.z = add_wrap(prev.z, 90);
+                matrix = .rotateZ(deg2rad(Rotation_Delta_Deg));
+                if (check_wrap_margin(self.rotation.z, st_rotation.z + 90, 2)) {
+                    self.model.transform = data.st_model.transform.multiply(.rotateZ(deg2rad(90)));
+                    self.rotation.z = add_wrap(st_rotation.z, 90);
                     self.current_animation = .{ .None = .{} };
+                    return;
                 }
             },
             .south => {
                 self.rotation.z = add_wrap(self.rotation.z, -Rotation_Delta_Deg);
 
-                if (check_wrap_margin(self.rotation.z, prev.z - 90, 2)) {
-                    self.rotation.z = add_wrap(prev.z, -90);
+                matrix = .rotateZ(deg2rad(-Rotation_Delta_Deg));
+                if (check_wrap_margin(self.rotation.z, st_rotation.z - 90, 2)) {
+                    self.model.transform = data.st_model.transform.multiply(.rotateZ(deg2rad(-90)));
+                    self.rotation.z = add_wrap(st_rotation.z, -90);
                     self.current_animation = .{ .None = .{} };
+                    return;
                 }
             },
             .east => {
                 // edge 7
+                matrix = .rotateX(deg2rad(-Rotation_Delta_Deg));
                 self.rotation.x = add_wrap(self.rotation.x, -Rotation_Delta_Deg);
-                if (check_wrap_margin(self.rotation.x, prev.x - 90, 2)) {
-                    self.rotation.x = add_wrap(prev.x, -90);
+                if (check_wrap_margin(self.rotation.x, st_rotation.x - 90, 2)) {
+                    self.model.transform = data.st_model.transform.multiply(.rotateX(deg2rad(-90)));
+                    self.rotation.x = add_wrap(st_rotation.x, -90);
                     self.current_animation = .{ .None = .{} };
+                    return;
                 }
             },
             .west => {
                 // edge 5
+                matrix = .rotateX(deg2rad(Rotation_Delta_Deg));
                 self.rotation.x = add_wrap(self.rotation.x, Rotation_Delta_Deg);
-                if (check_wrap_margin(self.rotation.x, prev.x + 90, 2)) {
-                    self.rotation.x = add_wrap(prev.x, 90);
+                if (check_wrap_margin(self.rotation.x, st_rotation.x + 90, 2)) {
+                    self.model.transform = data.st_model.transform.multiply(.rotateX(deg2rad(90)));
+                    self.rotation.x = add_wrap(st_rotation.x, 90);
                     self.current_animation = .{ .None = .{} };
+                    return;
                 }
             },
         }
 
-        self.model.transform = rl.Matrix.rotateXYZ(self.rotation.apply(deg2rad).as_RaylibVec3());
+        self.model.transform = self.model.transform.multiply(matrix);
     }
     pub const Side = struct {};
 };
