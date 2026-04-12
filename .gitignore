@@ -2,3 +2,4 @@
 .continue/
 zig-out/
 *.o
+.codex
