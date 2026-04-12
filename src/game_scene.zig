@@ -64,10 +64,9 @@ pub const GameScene = struct {
             defer self.camera.end();
             rl.drawGrid(20, 1.0);
 
-            const pos = rl.Vector3{ .x = player.position.x + 0.5, .y = player.position.y + 0.5, .z = player.position.z + 0.5 };
-            rl.drawModel(player.model, pos, 0.5, .white);
+            rl.drawModel(player.model, player.position.as_RaylibVec3(), 0.5, .white);
         }
-        rl.drawText(rl.textFormat("Aktuelle Unterseite: %f %f %f %f", .{ player.edges[0], player.edges[1], player.edges[2], player.edges[3] }), 10, 40, 20, .red);
+        rl.drawText(rl.textFormat("Aktuelle Unterseite: %f %f %f %f", .{ player.edges[0], player.edges[6], player.edges[2], player.edges[3] }), 10, 40, 20, .red);
         rl.drawText(rl.textFormat("Aktuelle Drehung: %f %f %f ", .{
             player.rotation.x,
             player.rotation.y,

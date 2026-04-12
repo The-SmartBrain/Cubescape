@@ -1,6 +1,7 @@
 const rl = @import("raylib");
 const std = @import("std");
 const deg2rad = std.math.degreesToRadians;
+const rad2deg = std.math.radiansToDegrees;
 const PlayerModelPath = "assets/player_model.obj";
 const PlayerTexturePath = "assets/player_texture.png";
 
@@ -23,7 +24,8 @@ pub const Player = struct {
         player.position = .zeros();
         player.rotation = .zeros();
         player.current_animation = .None;
-        player.model = try rl.loadModel(PlayerModelPath);
+        //        player.model = try rl.loadModel(PlayerModelPath);
+        player.model = try rl.loadModelFromMesh(rl.genMeshCube(1, 2, 1));
         player.edges = [12]f32{ 1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 1 };
 
         const img = try rl.loadImage(PlayerTexturePath);
@@ -113,58 +115,43 @@ pub const Player = struct {
     fn animate_rotation(self: *Player, dir: Direction, prev: Transform, edges: [12]f32, dt: f32) void {
         const Rotation_Delta_Deg = 340 * dt; // sweetspot;
 
-        var rotation_matrix: rl.Matrix = .identity();
+        _ = edges;
         switch (dir) {
             .north => {
-                // edge 6
-                const Rotation_Delta_Rad = deg2rad(Rotation_Delta_Deg);
+                self.rotation.z = add_wrap(self.rotation.z, Rotation_Delta_Deg);
 
-                const hyp: f32 = edges[5] / 2;
-                const sin = @sin(Rotation_Delta_Rad) * hyp;
-                const cos = @cos(Rotation_Delta_Rad) * hyp;
-
-                self.position.x -= sin;
-                self.position.y -= cos;
-
-                rotation_matrix = rl.Matrix.rotateZ(Rotation_Delta_Rad);
-
-                self.rotation.z += Rotation_Delta_Deg;
-
-                if (self.rotation.z >= prev.z + 90) {
+                if (check_wrap_margin(self.rotation.z, prev.z + 90, 2)) {
+                    self.rotation.z = add_wrap(prev.z, 90);
                     self.current_animation = .{ .None = .{} };
                 }
             },
             .south => {
-                const Rotation_Delta_Rad = deg2rad(-Rotation_Delta_Deg);
-                // edge 8
+                self.rotation.z = add_wrap(self.rotation.z, -Rotation_Delta_Deg);
 
-                self.rotation.z -= Rotation_Delta_Deg;
-
-                rotation_matrix = rl.Matrix.rotateZ(Rotation_Delta_Rad);
-                if (self.rotation.z <= prev.z - 90)
+                if (check_wrap_margin(self.rotation.z, prev.z - 90, 2)) {
+                    self.rotation.z = add_wrap(prev.z, -90);
                     self.current_animation = .{ .None = .{} };
+                }
             },
             .east => {
-                const Rotation_Delta_Rad = deg2rad(Rotation_Delta_Deg);
                 // edge 7
-                self.rotation.x -= Rotation_Delta_Deg;
-                //              self.position.z -= 0.1 * dt;
-                rotation_matrix = rl.Matrix.rotateX(-Rotation_Delta_Rad);
-                if (self.rotation.x <= prev.x - 90)
+                self.rotation.x = add_wrap(self.rotation.x, -Rotation_Delta_Deg);
+                if (check_wrap_margin(self.rotation.x, prev.x - 90, 2)) {
+                    self.rotation.x = add_wrap(prev.x, -90);
                     self.current_animation = .{ .None = .{} };
+                }
             },
             .west => {
-                const Rotation_Delta_Rad = deg2rad(Rotation_Delta_Deg);
                 // edge 5
-                self.rotation.x += Rotation_Delta_Deg;
-                //              self.position.z += 0.1 * dt;
-                rotation_matrix = rl.Matrix.rotateX(Rotation_Delta_Rad);
-                if (self.rotation.x >= prev.x + 90)
+                self.rotation.x = add_wrap(self.rotation.x, Rotation_Delta_Deg);
+                if (check_wrap_margin(self.rotation.x, prev.x + 90, 2)) {
+                    self.rotation.x = add_wrap(prev.x, 90);
                     self.current_animation = .{ .None = .{} };
+                }
             },
         }
 
-        self.model.transform = self.model.transform.multiply(rotation_matrix);
+        self.model.transform = rl.Matrix.rotateXYZ(self.rotation.apply(deg2rad).as_RaylibVec3());
     }
     pub const Side = struct {};
 };
@@ -178,4 +165,27 @@ pub const Transform = struct {
     pub fn zeros() Transform {
         return .{ .x = 0, .y = 0, .z = 0 };
     }
+    pub fn as_RaylibVec3(t: Transform) rl.Vector3 {
+        return .{ .x = t.x, .z = t.z, .y = t.y };
+    }
+
+    pub fn apply(t: Transform, func: *const fn (anytype) f32) Transform {
+        const x = func(t.x);
+        const y = func(t.y);
+        const z = func(t.z);
+        return .{ .x = x, .z = z, .y = y };
+    }
 };
+
+pub fn add_wrap(a: f32, b: f32) f32 {
+    return @mod((a + b), 360);
+}
+
+pub fn angular_diff(a: f32, b: f32) f32 {
+    const diff = @mod(a - b, 360);
+    return if (diff > 180) 360 - diff else diff;
+}
+
+pub fn check_wrap_margin(a: f32, b: f32, margin: f32) bool {
+    return angular_diff(a, b) < margin;
+}
