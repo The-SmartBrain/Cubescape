@@ -67,12 +67,7 @@ pub const GameScene = struct {
             defer self.camera.end();
             rl.drawGrid(20, 1.0);
 
-            rl.drawModelWires(player.model, player.origin, 1, .white);
-            rl.drawModelWires(player.model, .{ .x = 0, .y = 1, .z = 0 }, 1, .blue);
-            const x = (-player.edges[1] / 2) + player.origin.x;
-            const y = (-player.edges[4] / 2) + player.origin.y;
-            rl.drawLine3D(.{ .x = x, .y = y, .z = -0.5 }, .{ .x = x, .y = y, .z = 0.5 }, .red);
-            rl.drawSphere(player.origin, 0.1, .red);
+            rl.drawModel(player.model, player.origin, 0.5, .white);
         }
         rl.drawText(rl.textFormat("Aktuelle Unterseite: %f %f %f %f", .{ player.edges[0], player.edges[1], player.edges[4], player.edges[5] }), 10, 40, 20, .red);
         rl.drawText(rl.textFormat("Aktuelle Drehung: %f %f %f ", .{

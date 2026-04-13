@@ -30,8 +30,8 @@ pub const Player = struct {
         player.origin = .{ .x = 0, .y = 1, .z = 0 };
         player.rotation = .{ .x = 0, .z = 0, .y = 0 };
         player.current_animation = .None;
-        //        player.model = try rl.loadModel(PlayerModelPath);
-        player.model = try rl.loadModelFromMesh(rl.genMeshCube(1, 2, 1));
+        player.model = try rl.loadModel(PlayerModelPath);
+        //        player.model = try rl.loadModelFromMesh(rl.genMeshCube(1, 2, 1));
         player.edges = [12]f32{ 1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 1 };
 
         const img = try rl.loadImage(PlayerTexturePath);
@@ -195,9 +195,33 @@ pub const Player = struct {
                 // edge 7
                 matrix = .rotateX(deg2rad(-Rotation_Delta_Deg));
                 self.rotation.x = add_wrap(self.rotation.x, -Rotation_Delta_Deg);
+                const b = data.old_edges[5] / 2;
+                const a = data.old_edges[0] / 2;
+
+                {
+                    const c = deg2rad(data.rotation.x - self.rotation.x);
+                    const radius = @sqrt(b * b + a * a);
+                    const theta = std.math.atan2(b, a);
+                    const dz = radius * @cos(theta + c) - a;
+                    const dy = radius * @sin(theta + c) - b;
+
+                    self.origin.z = data.starting_origin.z + dz;
+                    self.origin.y = data.starting_origin.y + dy;
+                }
+
                 if (check_wrap_margin(self.rotation.x, st_rotation.x - 90, 2)) {
                     self.model.transform = data.st_model.transform.multiply(.rotateX(deg2rad(-90)));
                     self.rotation.x = add_wrap(st_rotation.x, -90);
+
+                    const c = deg2rad(90);
+                    const radius = @sqrt(b * b + a * a);
+                    const theta = std.math.atan2(b, a);
+                    const dz = radius * @cos(theta + c) - a;
+                    const dy = radius * @sin(theta + c) - b;
+
+                    self.origin.z = data.starting_origin.z + dz;
+                    self.origin.y = data.starting_origin.y + dy;
+
                     self.current_animation = .{ .None = .{} };
                     return;
                 }
@@ -206,9 +230,33 @@ pub const Player = struct {
                 // edge 5
                 matrix = .rotateX(deg2rad(Rotation_Delta_Deg));
                 self.rotation.x = add_wrap(self.rotation.x, Rotation_Delta_Deg);
+                const b = data.old_edges[5] / 2;
+                const a = -data.old_edges[0] / 2;
+
+                {
+                    const c = deg2rad(data.rotation.x - self.rotation.x);
+                    const radius = @sqrt(b * b + a * a);
+                    const theta = std.math.atan2(b, a);
+                    const dz = radius * @cos(theta + c) - a;
+                    const dy = radius * @sin(theta + c) - b;
+
+                    self.origin.z = data.starting_origin.z + dz;
+                    self.origin.y = data.starting_origin.y + dy;
+                }
+
                 if (check_wrap_margin(self.rotation.x, st_rotation.x + 90, 2)) {
                     self.model.transform = data.st_model.transform.multiply(.rotateX(deg2rad(90)));
                     self.rotation.x = add_wrap(st_rotation.x, 90);
+
+                    const c = deg2rad(-90);
+                    const radius = @sqrt(b * b + a * a);
+                    const theta = std.math.atan2(b, a);
+                    const dz = radius * @cos(theta + c) - a;
+                    const dy = radius * @sin(theta + c) - b;
+
+                    self.origin.z = data.starting_origin.z + dz;
+                    self.origin.y = data.starting_origin.y + dy;
+
                     self.current_animation = .{ .None = .{} };
                     return;
                 }
