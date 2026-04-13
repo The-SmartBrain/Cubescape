@@ -19,5 +19,7 @@
 
 
 ### Freddi
-- SzenenManager
+- Menü
+- Gameoverlay
+- Pausemenü
 
