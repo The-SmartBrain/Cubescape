@@ -27,7 +27,7 @@ pub const GameScene = struct {
         self.allocator = context.allocator;
 
         self.camera = rl.Camera3D{
-            .position = .{ .x = 0, .y = 1, .z = -10 },
+            .position = .{ .x = 0, .y = 1, .z = 10 },
             .target = .{ .x = 0, .y = 0, .z = 0 },
             .up = .{ .x = 0.0, .y = 1.0, .z = 0.0 },
             .fovy = 35.0,
@@ -35,11 +35,11 @@ pub const GameScene = struct {
         };
         self.player = try .init();
 
-        self.camera.target = .{ .x = self.player.position.x, .y = 1, .z = self.player.position.z };
+        self.camera.target = .{ .x = self.player.origin.x, .y = 1, .z = self.player.origin.z };
         //        self.camera.position = .{
-        //            .x = self.player.position.x + (distance * @cos(pitch_rad) * @sin(yaw_rad)),
+        //            .x = self.player.origin.x + (distance * @cos(pitch_rad) * @sin(yaw_rad)),
         //            .y = distance * @sin(pitch_rad),
-        //            .z = self.player.position.z + (distance * @cos(pitch_rad) * @cos(yaw_rad)),
+        //            .z = self.player.origin.z + (distance * @cos(pitch_rad) * @cos(yaw_rad)),
         //        };
 
         // Init Scene here --> Läuft EINMAL beim Start
@@ -54,11 +54,11 @@ pub const GameScene = struct {
         player.animate(delta_time);
 
         // Kamera-Berechnung
-        //self.camera.target = .{ .x = self.player.position.x, .y = 0, .z = self.player.position.z };
+        //self.camera.target = .{ .x = self.player.origin.x, .y = 0, .z = self.player.origin.z };
         //        self.camera.position = .{
-        //            .x = player.position.x + (distance * @cos(pitch_rad) * @sin(yaw_rad)),
+        //            .x = player.origin.x + (distance * @cos(pitch_rad) * @sin(yaw_rad)),
         //            .y = distance * @sin(pitch_rad),
-        //            .z = player.position.z + (distance * @cos(pitch_rad) * @cos(yaw_rad)),
+        //            .z = player.origin.z + (distance * @cos(pitch_rad) * @cos(yaw_rad)),
         //        };
         //
         rl.clearBackground(.white);
@@ -67,18 +67,23 @@ pub const GameScene = struct {
             defer self.camera.end();
             rl.drawGrid(20, 1.0);
 
-            rl.drawModel(player.model, player.position.as_RaylibVec3(), 1, .white);
+            rl.drawModelWires(player.model, player.origin, 1, .white);
+            rl.drawModelWires(player.model, .{ .x = 0, .y = 1, .z = 0 }, 1, .blue);
+            const x = (-player.edges[1] / 2) + player.origin.x;
+            const y = (-player.edges[4] / 2) + player.origin.y;
+            rl.drawLine3D(.{ .x = x, .y = y, .z = -0.5 }, .{ .x = x, .y = y, .z = 0.5 }, .red);
+            rl.drawSphere(player.origin, 0.1, .red);
         }
-        rl.drawText(rl.textFormat("Aktuelle Unterseite: %f %f %f %f", .{ player.edges[0], player.edges[6], player.edges[2], player.edges[3] }), 10, 40, 20, .red);
+        rl.drawText(rl.textFormat("Aktuelle Unterseite: %f %f %f %f", .{ player.edges[0], player.edges[1], player.edges[4], player.edges[5] }), 10, 40, 20, .red);
         rl.drawText(rl.textFormat("Aktuelle Drehung: %f %f %f ", .{
             player.rotation.x,
             player.rotation.y,
             player.rotation.z,
         }), 10, 60, 20, .red);
         rl.drawText(rl.textFormat("Aktuelle position: %f %f %f ", .{
-            player.position.x,
-            player.position.y,
-            player.position.z,
+            player.origin.x,
+            player.origin.y,
+            player.origin.z,
         }), 10, 80, 20, .red);
 
         // Overlay als letztes
@@ -112,13 +117,13 @@ pub const GameScene = struct {
         if (rl.isKeyPressed(.space)) {
             if (self.camera.position.z == 10) {
                 self.camera.position = .{
-                    .x = self.player.position.x + (distance * @cos(pitch_rad) * @sin(yaw_rad)),
+                    .x = self.player.origin.x + (distance * @cos(pitch_rad) * @sin(yaw_rad)),
                     .y = distance * @sin(pitch_rad),
-                    .z = self.player.position.z + (distance * @cos(pitch_rad) * @cos(yaw_rad)),
+                    .z = self.player.origin.z + (distance * @cos(pitch_rad) * @cos(yaw_rad)),
                 };
-                self.camera.target = .{ .x = self.player.position.x, .y = 0, .z = self.player.position.z };
+                self.camera.target = .{ .x = self.player.origin.x, .y = 0, .z = self.player.origin.z };
             } else {
-                self.camera.target = .{ .x = self.player.position.x, .y = 1, .z = self.player.position.z };
+                self.camera.target = .{ .x = self.player.origin.x, .y = 1, .z = self.player.origin.z };
                 self.camera.position = .{ .x = 0, .y = 0.5, .z = 10 };
             }
         }

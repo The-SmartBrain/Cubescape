@@ -7,23 +7,28 @@ const PlayerTexturePath = "assets/player_texture.png";
 
 pub const Player = struct {
     pub const Animation = union(enum) {
-        pub const RollingData = struct { st_model: rl.Model, starting_origin: Transform, rotation: Transform, old_edges: [12]f32, dir: Direction };
+        pub const RollingData = struct { st_model: rl.Model, starting_origin: rl.Vector3, rotation: rl.Vector3, old_edges: [12]f32, dir: Direction };
         Rolling: RollingData,
         None: struct {},
+    };
+    pub const GridPosition = union(enum) {
+        OneBlock: rl.Vector2,
+        TwoBlock: [2]rl.Vector2,
     };
 
     sides: [6]Side,
     edges: [12]f32,
     model: rl.Model,
     texture: rl.Texture,
-    position: Transform,
-    rotation: Transform,
+    origin: rl.Vector3,
+    rotation: rl.Vector3,
+    grid_position: GridPosition,
     current_animation: Animation,
 
     pub fn init() !Player {
         var player: Player = undefined;
-        player.position = .{ .x = 0, .y = 1, .z = 0 };
-        player.rotation = .zeros();
+        player.origin = .{ .x = 0, .y = 1, .z = 0 };
+        player.rotation = .{ .x = 0, .z = 0, .y = 0 };
         player.current_animation = .None;
         //        player.model = try rl.loadModel(PlayerModelPath);
         player.model = try rl.loadModelFromMesh(rl.genMeshCube(1, 2, 1));
@@ -103,7 +108,7 @@ pub const Player = struct {
                 new_edges[9] = self.edges[11];
             },
         }
-        self.current_animation = .{ .Rolling = .{ .st_model = self.model, .starting_origin = self.position, .rotation = self.rotation, .old_edges = self.edges, .dir = dir } };
+        self.current_animation = .{ .Rolling = .{ .st_model = self.model, .starting_origin = self.origin, .rotation = self.rotation, .old_edges = self.edges, .dir = dir } };
         self.edges = new_edges;
     }
 
@@ -122,9 +127,33 @@ pub const Player = struct {
             .north => {
                 self.rotation.z = add_wrap(self.rotation.z, Rotation_Delta_Deg);
 
-                matrix = .rotateZ(deg2rad(Rotation_Delta_Deg));
+                const b = data.old_edges[4] / 2;
+                const a = -data.old_edges[1] / 2;
+
+                {
+                    const c = deg2rad(data.rotation.z - self.rotation.z);
+                    const radius = @sqrt(b * b + a * a);
+                    const theta = std.math.atan2(b, a);
+                    const dx = radius * @cos(theta + c) - a;
+                    const dy = radius * @sin(theta + c) - b;
+
+                    self.origin.x = data.starting_origin.x - dx;
+                    self.origin.y = data.starting_origin.y + dy;
+                }
+                //
+                matrix = rl.Matrix.rotateZ(deg2rad(Rotation_Delta_Deg));
                 if (check_wrap_margin(self.rotation.z, st_rotation.z + 90, 2)) {
-                    self.model.transform = data.st_model.transform.multiply(.rotateZ(deg2rad(90)));
+                    matrix = rl.Matrix.rotateZ(deg2rad(90));
+                    const c = deg2rad(-90);
+                    const radius = @sqrt(b * b + a * a);
+                    const theta = std.math.atan2(b, a);
+                    const dx = radius * @cos(theta + c) - a;
+                    const dy = radius * @sin(theta + c) - b;
+
+                    self.origin.x = data.starting_origin.x - dx;
+                    self.origin.y = data.starting_origin.y + dy;
+
+                    self.model.transform = data.st_model.transform.multiply(matrix);
                     self.rotation.z = add_wrap(st_rotation.z, 90);
                     self.current_animation = .{ .None = .{} };
                     return;
@@ -132,9 +161,30 @@ pub const Player = struct {
             },
             .south => {
                 self.rotation.z = add_wrap(self.rotation.z, -Rotation_Delta_Deg);
+                const b = data.old_edges[4] / 2;
+                const a = data.old_edges[1] / 2;
+
+                {
+                    const c = deg2rad(data.rotation.z - self.rotation.z);
+                    const radius = @sqrt(b * b + a * a);
+                    const theta = std.math.atan2(b, a);
+                    const dx = radius * @cos(theta + c) - a;
+                    const dy = radius * @sin(theta + c) - b;
+
+                    self.origin.x = data.starting_origin.x - dx;
+                    self.origin.y = data.starting_origin.y + dy;
+                }
 
                 matrix = .rotateZ(deg2rad(-Rotation_Delta_Deg));
                 if (check_wrap_margin(self.rotation.z, st_rotation.z - 90, 2)) {
+                    const c = deg2rad(90);
+                    const radius = @sqrt(b * b + a * a);
+                    const theta = std.math.atan2(b, a);
+                    const dx = radius * @cos(theta + c) - a;
+                    const dy = radius * @sin(theta + c) - b;
+
+                    self.origin.x = data.starting_origin.x - dx;
+                    self.origin.y = data.starting_origin.y + dy;
                     self.model.transform = data.st_model.transform.multiply(.rotateZ(deg2rad(-90)));
                     self.rotation.z = add_wrap(st_rotation.z, -90);
                     self.current_animation = .{ .None = .{} };
@@ -171,25 +221,6 @@ pub const Player = struct {
 };
 
 pub const Direction = enum { north, south, east, west };
-
-pub const Transform = struct {
-    x: f32,
-    y: f32,
-    z: f32,
-    pub fn zeros() Transform {
-        return .{ .x = 0, .y = 0, .z = 0 };
-    }
-    pub fn as_RaylibVec3(t: Transform) rl.Vector3 {
-        return .{ .x = t.x, .z = t.z, .y = t.y };
-    }
-
-    pub fn apply(t: Transform, func: *const fn (anytype) f32) Transform {
-        const x = func(t.x);
-        const y = func(t.y);
-        const z = func(t.z);
-        return .{ .x = x, .z = z, .y = y };
-    }
-};
 
 pub fn add_wrap(a: f32, b: f32) f32 {
     return @mod((a + b), 360);
