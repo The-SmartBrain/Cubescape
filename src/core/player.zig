@@ -47,8 +47,8 @@ pub const Player = struct {
         rl.unloadModel(c.model);
     }
 
-    pub fn roll(self: *Player, dir: Direction) void {
-        if (self.current_animation != .None) return;
+    pub fn roll(self: *Player, dir: Direction) bool {
+        if (self.current_animation != .None) return false;
         var new_edges: [12]f32 = undefined;
         switch (dir) {
             .north => {
@@ -110,6 +110,7 @@ pub const Player = struct {
         }
         self.current_animation = .{ .Rolling = .{ .st_model = self.model, .starting_origin = self.origin, .rotation = self.rotation, .old_edges = self.edges, .dir = dir } };
         self.edges = new_edges;
+        return true;
     }
 
     pub fn animate(self: *Player, dt: f32) void {
