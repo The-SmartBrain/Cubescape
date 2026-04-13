@@ -3,6 +3,7 @@ const rl = @import("raylib");
 const SceneContext = @import("scene/context.zig").SceneContext;
 const SceneId = @import("scene/id.zig").SceneId;
 const Player = @import("core/player.zig").Player;
+const overlay = @import("ingame_overlay.zig");
 
 const pitch_deg: f32 = 50.0;
 const yaw_deg: f32 = 60.0;
@@ -18,6 +19,7 @@ pub const GameScene = struct {
     allocator: std.mem.Allocator,
     camera: rl.Camera3D,
     player: Player,
+    current_moves: u8,
 
     pub fn onStartup(self: *GameScene, context: *SceneContext) anyerror!void {
         std.log.info("Starting Game scene", .{});
@@ -41,6 +43,7 @@ pub const GameScene = struct {
         //        };
 
         // Init Scene here --> Läuft EINMAL beim Start
+        self.current_moves = 0;
     }
 
     pub fn onUpdate(self: *GameScene, context: *SceneContext, delta_time: f32) anyerror!void {
@@ -77,6 +80,9 @@ pub const GameScene = struct {
             player.position.y,
             player.position.z,
         }), 10, 80, 20, .red);
+
+        // Overlay als letztes
+        overlay.draw(self);
     }
 
     pub fn onCleanup(self: *GameScene, context: *SceneContext) anyerror!void {
