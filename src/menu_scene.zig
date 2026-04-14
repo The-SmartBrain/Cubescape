@@ -68,15 +68,15 @@ pub const MenuScene = struct {
         if (hover_gear) self.selected_index = 2;
 
         const option_count: i32 = 3;
-        if (rl.isKeyPressed(.down) or rl.isKeyPressed(.right)) {
+        if (rl.isKeyDown(.down) or rl.isKeyDown(.right)) {
             self.selected_index = @mod(self.selected_index + 1, option_count);
         }
-        if (rl.isKeyPressed(.up) or rl.isKeyPressed(.left)) {
+        if (rl.isKeyDown(.up) or rl.isKeyDown(.left)) {
             self.selected_index = @mod(self.selected_index + option_count - 1, option_count);
         }
 
         var activate_selected = false;
-        if (rl.isKeyPressed(.enter) or rl.isKeyPressed(.space)) {
+        if (rl.isKeyDown(.enter) or rl.isKeyDown(.space)) {
             activate_selected = true;
         }
 
@@ -118,6 +118,11 @@ pub const MenuScene = struct {
 
         if (hover_gear) {
             self.gear_angle_deg += delta_time * 140.0;
+        }
+
+        if (rl.isKeyPressed(.space)) {
+            try context.switchTo(SceneId.editor);
+            return;
         }
 
         if (start_clicked or (activate_selected and self.selected_index == 0)) {

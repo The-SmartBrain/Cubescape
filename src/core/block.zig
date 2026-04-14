@@ -1,3 +1,7 @@
 pub const Block = struct {
-    id: u16,
+    id: BlockID,
+    pub const BlockID = enum {
+        empty,
+        simple,
+    };
 };

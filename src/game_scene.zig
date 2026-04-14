@@ -5,19 +5,9 @@ const SceneId = @import("scene/id.zig").SceneId;
 const Player = @import("core/player.zig").Player;
 const Camera = @import("core/camera.zig").Camera;
 const Block = @import("core/block.zig").Block;
+const Level = @import("core/level.zig").Level;
 const overlay = @import("ingame_overlay.zig");
 const Blender_Unit_2_Raylib_Unit = 0.50;
-
-pub const LevelJSON = struct {
-    width: u8,
-    length: u8,
-    blocks: []block,
-    const block = struct {
-        id: u16,
-        x: u8,
-        y: u8,
-    };
-};
 
 // Zum Szenenwechsel:
 // try context.switchTo(SceneID.menu); // setzt Context zum Wechseln
@@ -28,9 +18,8 @@ pub const GameScene = struct {
     allocator: std.mem.Allocator,
     camera: Camera,
     player: Player,
-    grid_width: f32,
-    grid_length: f32,
     current_moves: u8,
+    level: Level,
     // Setting default values WILL NOT work because the scene struct is initialised using an allocator instead of the normal way,
     // every value is thus set to its 0 value;
 
@@ -43,9 +32,8 @@ pub const GameScene = struct {
         self.player = try .init();
 
         self.camera.follow_fn = Camera.simple_follow;
+        self.level = try .init(Level.LevelID.one, 20, 20, self.allocator);
         self.camera.update(self.player.origin);
-        self.grid_length = 100;
-        self.grid_width = 100;
 
         // Init Scene here --> Läuft EINMAL beim Start
         self.current_moves = 0;
@@ -60,24 +48,17 @@ pub const GameScene = struct {
 
         self.camera.update(player.origin);
 
-        const ray = rl.getScreenToWorldRay(rl.getMousePosition(), self.camera.camera);
         rl.clearBackground(.white);
         {
             self.camera.begin();
             defer self.camera.end();
-            rl.drawGrid(20, 1.0);
 
-            const p1: rl.Vector3 = .{ .x = self.grid_length / 2, .y = 0, .z = self.grid_width / 2 };
-            const p2: rl.Vector3 = .{ .x = -self.grid_length / 2, .y = 0, .z = self.grid_width / 2 };
-            const p3: rl.Vector3 = .{ .x = -self.grid_length / 2, .y = 0, .z = -self.grid_width / 2 };
-            const p4: rl.Vector3 = .{ .x = self.grid_length / 2, .y = 0, .z = -self.grid_width / 2 };
-            const collision = rl.getRayCollisionQuad(ray, p1, p4, p3, p2);
+            const length: f32 = @floatFromInt(self.level.length);
+            const width: f32 = @floatFromInt(self.level.width);
+            Level.draw_2D_grid(.{ .x = 0.5, .y = 0, .z = 0.5 }, width, length, 1);
+            self.level.draw_grid();
 
             rl.drawModel(player.model, player.origin, Blender_Unit_2_Raylib_Unit, .white);
-
-            if (collision.hit) {
-                rl.drawCube(collision.point, 1, 0.1, 1, .red);
-            }
         }
 
         rl.drawText(rl.textFormat("Aktuelle Unterseite: 0. %f 1. %f 4. %f 5. %f", .{ player.edges[0], player.edges[1], player.edges[4], player.edges[5] }), 10, 40, 20, .red);
@@ -97,26 +78,25 @@ pub const GameScene = struct {
     }
 
     pub fn onCleanup(self: *GameScene, context: *SceneContext) anyerror!void {
-        _ = context;
-        _ = self;
         std.log.info("Game Scene Cleaning up...", .{});
+        Level.deinit_grid(self.level.grid, context.allocator);
     }
 
     fn getInput(self: *GameScene, context: *SceneContext) anyerror!void {
-        if (rl.isKeyPressed(.m)) {
+        if (rl.isKeyDown(.m)) {
             try context.switchTo(SceneId.menu);
             return;
         }
-        if (rl.isKeyPressed(.up)) {
+        if (rl.isKeyDown(.up)) {
             if (self.player.roll(.north)) self.current_moves += 1;
         }
-        if (rl.isKeyPressed(.down)) {
+        if (rl.isKeyDown(.down)) {
             if (self.player.roll(.south)) self.current_moves += 1;
         }
-        if (rl.isKeyPressed(.left)) {
+        if (rl.isKeyDown(.left)) {
             if (self.player.roll(.west)) self.current_moves += 1;
         }
-        if (rl.isKeyPressed(.right)) {
+        if (rl.isKeyDown(.right)) {
             if (self.player.roll(.east)) self.current_moves += 1;
         }
     }

@@ -4,6 +4,7 @@ const Application = @import("core/application.zig").Application;
 
 const GameScene = @import("game_scene.zig").GameScene;
 const MenuScene = @import("menu_scene.zig").MenuScene;
+const EditorScene = @import("level_editor.zig").EditorScene;
 const SceneId = @import("scene/id.zig").SceneId;
 
 pub fn main() void {
@@ -23,5 +24,6 @@ pub fn main() void {
 
     app.pushScene(MenuScene, SceneId.menu, true);
     app.pushScene(GameScene, SceneId.game, false);
+    app.pushScene(EditorScene, SceneId.editor, false);
     app.run();
 }
