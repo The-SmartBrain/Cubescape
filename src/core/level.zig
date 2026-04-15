@@ -2,7 +2,7 @@ const std = @import("std");
 const rl = @import("raylib");
 const Block = @import("block.zig").Block;
 const json = std.json;
-const Path = "assets/";
+const Path = "assets/levels/";
 const json_suffix = ".json";
 const MaxBytesRead: usize = std.math.maxInt(usize);
 
@@ -10,11 +10,13 @@ pub const Level = struct {
     width: u8,
     length: u8,
     id: LevelID,
+    grid_initted: bool,
     starting_point: rl.Vector2,
     finish: rl.Vector2,
 
     grid: [][]Block,
     pub fn draw_grid(self: *Level) void {
+        if (!self.grid_initted) return;
         const length: f32 = @floatFromInt(self.length);
         const width: f32 = @floatFromInt(self.width);
         for (self.grid, 0..) |row, i| {
@@ -42,6 +44,7 @@ pub const Level = struct {
             .width = width,
             .length = length,
             .grid = try init_grid(length, width, alloator),
+            .grid_initted = true,
             // zif fmt: onn
         };
         return lvl;
@@ -59,11 +62,13 @@ pub const Level = struct {
         return grid;
     }
 
-    pub fn deinit_grid(grid: [][]Block, allocator: std.mem.Allocator) void {
-        for (grid, 0..) |_, i| {
-            allocator.free(grid[i]);
+    pub fn deinit_grid(self: *Level, allocator: std.mem.Allocator) void {
+        if (!self.grid_initted) return;
+        for (self.grid, 0..) |_, i| {
+            allocator.free(self.grid[i]);
         }
-        allocator.free(grid);
+        allocator.free(self.grid);
+        self.grid_initted = false;
     }
 
     pub fn draw_2D_grid(center: rl.Vector3, width: f32, length: f32, spacing: f32) void {
@@ -104,7 +109,7 @@ pub const Level = struct {
         try file_writer.writeAll(json_data);
         try file_writer.flush();
     }
-    pub fn inport_level(id: LevelID, allocator: std.mem.Allocator) !Level {
+    pub fn import_level(id: LevelID, allocator: std.mem.Allocator) !Level {
         const lvl_name = @tagName(id); // return type : [:0] const u8;
         const full_path = try std.mem.concat(allocator, u8, &[_][]const u8{ Path, lvl_name, json_suffix });
         defer allocator.free(full_path);
@@ -115,6 +120,8 @@ pub const Level = struct {
         var lvl: Level = parsed.value;
 
         const grid = try allocator.alloc([]Block, lvl.grid.len);
+        errdefer lvl.deinit_grid(allocator);
+
         for (lvl.grid, 0..) |old_row, i| {
             const row = try allocator.alloc(Block, old_row.len);
             grid[i] = row;
@@ -123,6 +130,7 @@ pub const Level = struct {
             }
         }
         lvl.grid = grid;
+        lvl.grid_initted = true;
         return lvl;
     }
 };

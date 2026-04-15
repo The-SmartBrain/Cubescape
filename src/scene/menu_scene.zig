@@ -1,7 +1,7 @@
 const std = @import("std");
 const rl = @import("raylib");
-const SceneContext = @import("scene/context.zig").SceneContext;
-const SceneId = @import("scene/id.zig").SceneId;
+const SceneContext = @import("context.zig").SceneContext;
+const SceneId = @import("id.zig").SceneId;
 
 pub const MenuScene = struct {
     allocator: std.mem.Allocator,

@@ -1,3 +1,4 @@
 // Alle Scenen können auf Variablen hier drinnen zugreifen
+const Level = @import("core/level.zig").Level;
 
-pub var LevlId = 0;
+pub var CurrentLevelID: Level.LevelID = .one;

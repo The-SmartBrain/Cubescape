@@ -1,10 +1,11 @@
 const std = @import("std");
 const rl = @import("raylib");
-const SceneContext = @import("scene/context.zig").SceneContext;
-const SceneId = @import("scene/id.zig").SceneId;
-const Camera = @import("core/camera.zig").Camera;
-const Block = @import("core/block.zig").Block;
-const Level = @import("core/level.zig").Level;
+const SceneId = @import("id.zig").SceneId;
+const SceneContext = @import("context.zig").SceneContext;
+const Camera = @import("../core/camera.zig").Camera;
+const Block = @import("../core/block.zig").Block;
+const Level = @import("../core/level.zig").Level;
+const GlobalState = @import("../global_state.zig");
 const Blender_Unit_2_Raylib_Unit = 0.50;
 
 pub const EditorScene = struct {
@@ -26,7 +27,11 @@ pub const EditorScene = struct {
         self.camera.follow_fn = Camera.simple_follow;
         self.current_block_id = .simple;
 
-        self.level = try .init(Level.LevelID.zero, 30, 30, self.allocator);
+        self.level = Level.import_level(GlobalState.CurrentLevelID, self.allocator) catch |err| blk: {
+            std.log.err("Level Could not be loaded {}\n", .{err});
+            break :blk try Level.init(GlobalState.CurrentLevelID, 10, 10, self.allocator);
+        };
+
         self.collision = rl.RayCollision{ .hit = false, .distance = 0, .point = .zero(), .normal = .zero() };
 
         // Init Scene here --> Läuft EINMAL beim Start
@@ -55,7 +60,7 @@ pub const EditorScene = struct {
 
     pub fn onCleanup(self: *EditorScene, context: *SceneContext) anyerror!void {
         std.log.info("Editor Scene Cleaning up...", .{});
-        Level.deinit_grid(self.level.grid, context.allocator);
+        self.level.deinit_grid(context.allocator);
     }
 
     fn getInput(self: *EditorScene, context: *SceneContext) anyerror!bool {
@@ -77,15 +82,15 @@ pub const EditorScene = struct {
             }
         }
 
-        if (rl.isKeyDown(.one)) {
+        if (rl.isKeyPressed(.one)) {
             try self.level.export_level(self.allocator);
-            Level.deinit_grid(self.level.grid, self.allocator);
-            self.level = try Level.inport_level(.one, self.allocator);
+            self.level.deinit_grid(context.allocator);
+            self.level = try Level.import_level(.one, self.allocator);
         }
-        if (rl.isKeyDown(.zero)) {
+        if (rl.isKeyPressed(.zero)) {
             try self.level.export_level(self.allocator);
-            Level.deinit_grid(self.level.grid, self.allocator);
-            self.level = try Level.init(.zero, 30, 30, self.allocator);
+            self.level.deinit_grid(context.allocator);
+            self.level = try Level.import_level(.zero, self.allocator);
         }
         if (rl.isKeyDown(.f))
             self.current_block_id = .simple;

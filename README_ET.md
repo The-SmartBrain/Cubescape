@@ -25,7 +25,7 @@ Small Puzzle Game for playing while lessons
 - Loch
 - Stein (einfache Wand)
 - Verwirrungs-Stein, der die Steuerung vorübergehend ändert, rechts wird links , vorne wird hinten. Leicht versteckt. Nachdem man dadrauf getreten ist, kann man den Stein sehen 
-
+- Schwacher Boden: Man kann nur einmal auf dem Stein treten. Nachdem man den Stein verlaessen hat, verschwindet der. 
 
 
 ## Effekte

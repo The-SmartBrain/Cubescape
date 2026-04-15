@@ -2,9 +2,9 @@
 const std = @import("std");
 const Application = @import("core/application.zig").Application;
 
-const GameScene = @import("game_scene.zig").GameScene;
-const MenuScene = @import("menu_scene.zig").MenuScene;
-const EditorScene = @import("level_editor.zig").EditorScene;
+const GameScene = @import("scene/game_scene.zig").GameScene;
+const MenuScene = @import("scene/menu_scene.zig").MenuScene;
+const EditorScene = @import("scene/level_editor.zig").EditorScene;
 const SceneId = @import("scene/id.zig").SceneId;
 
 pub fn main() void {

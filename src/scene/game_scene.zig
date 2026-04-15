@@ -1,11 +1,12 @@
 const std = @import("std");
 const rl = @import("raylib");
-const SceneContext = @import("scene/context.zig").SceneContext;
-const SceneId = @import("scene/id.zig").SceneId;
-const Player = @import("core/player.zig").Player;
-const Camera = @import("core/camera.zig").Camera;
-const Block = @import("core/block.zig").Block;
-const Level = @import("core/level.zig").Level;
+const SceneContext = @import("context.zig").SceneContext;
+const GlobalState = @import("../global_state.zig");
+const SceneId = @import("id.zig").SceneId;
+const Player = @import("../core/player.zig").Player;
+const Camera = @import("../core/camera.zig").Camera;
+const Block = @import("../core/block.zig").Block;
+const Level = @import("../core/level.zig").Level;
 const overlay = @import("ingame_overlay.zig");
 const Blender_Unit_2_Raylib_Unit = 0.50;
 
@@ -32,7 +33,11 @@ pub const GameScene = struct {
         self.player = try .init();
 
         self.camera.follow_fn = Camera.simple_follow;
-        self.level = try Level.inport_level(.one, self.allocator);
+        self.level = Level.import_level(GlobalState.CurrentLevelID, self.allocator) catch |err| {
+            std.log.err("Level Could not be loaded {}\n", .{err});
+            try context.switchTo(SceneId.menu);
+            return;
+        };
         self.camera.update(self.player.origin);
 
         // Init Scene here --> Läuft EINMAL beim Start
@@ -79,7 +84,7 @@ pub const GameScene = struct {
 
     pub fn onCleanup(self: *GameScene, context: *SceneContext) anyerror!void {
         std.log.info("Game Scene Cleaning up...", .{});
-        Level.deinit_grid(self.level.grid, context.allocator);
+        self.level.deinit_grid(context.allocator);
     }
 
     fn getInput(self: *GameScene, context: *SceneContext) anyerror!bool {
