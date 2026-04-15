@@ -43,7 +43,7 @@ pub const GameScene = struct {
         // main Loop
         const player: *Player = &self.player;
 
-        try self.getInput(context);
+        if (try self.getInput(context)) return;
         player.animate(delta_time);
 
         self.camera.update(player.origin);
@@ -82,10 +82,10 @@ pub const GameScene = struct {
         Level.deinit_grid(self.level.grid, context.allocator);
     }
 
-    fn getInput(self: *GameScene, context: *SceneContext) anyerror!void {
+    fn getInput(self: *GameScene, context: *SceneContext) anyerror!bool {
         if (rl.isKeyDown(.m)) {
             try context.switchTo(SceneId.menu);
-            return;
+            return true;
         }
         if (rl.isKeyDown(.up)) {
             if (self.player.roll(.north)) self.current_moves += 1;
@@ -99,5 +99,6 @@ pub const GameScene = struct {
         if (rl.isKeyDown(.right)) {
             if (self.player.roll(.east)) self.current_moves += 1;
         }
+        return false;
     }
 };

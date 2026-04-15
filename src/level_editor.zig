@@ -34,7 +34,7 @@ pub const EditorScene = struct {
         // main Loop
 
         _ = delta_time;
-        try self.getInput(context);
+        if (try self.getInput(context)) return;
 
         rl.clearBackground(.white);
         {
@@ -56,10 +56,10 @@ pub const EditorScene = struct {
         Level.deinit_grid(self.level.grid, context.allocator);
     }
 
-    fn getInput(self: *EditorScene, context: *SceneContext) anyerror!void {
+    fn getInput(self: *EditorScene, context: *SceneContext) anyerror!bool {
         if (rl.isKeyDown(.m)) {
             try context.switchTo(SceneId.menu);
-            return;
+            return true;
         }
 
         const grid_center: rl.Vector3 = .{ .x = 0.5, .y = 0, .z = 0.5 };
@@ -108,6 +108,7 @@ pub const EditorScene = struct {
                 self.camera.camera.position = .add(self.camera.camera.position, .scale(up, -speed));
             }
         }
+        return false;
     }
 };
 

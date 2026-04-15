@@ -53,7 +53,6 @@ pub const Application = struct {
             app.time.update(@floatCast(current_time));
 
             app.beginVirtualFrame();
-            std.debug.print("active_scene:{s}\n", .{@tagName(app.scene_manager.getActiveScene().id)});
             app.scene_manager.updateScene(app.time.delta_time) catch |err| {
                 app.endVirtualFrame();
                 std.log.err("Error updating Scene: {}", .{err});
