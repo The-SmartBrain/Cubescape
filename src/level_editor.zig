@@ -12,6 +12,7 @@ pub const EditorScene = struct {
     camera: Camera,
     level: Level,
     collision: rl.RayCollision,
+    current_block_id: Block.BlockID,
     // Setting default values WILL NOT work because the scene struct is initialised using an allocator instead of the normal way,
     // every value is thus set to its 0 value;
 
@@ -23,8 +24,9 @@ pub const EditorScene = struct {
         self.camera = .init(Camera.Default_Distance, 35, rl.Vector3{ .x = 1, .y = 1, .z = 1 });
 
         self.camera.follow_fn = Camera.simple_follow;
+        self.current_block_id = .simple;
 
-        self.level = try Level.inport_level(.one, self.allocator);
+        self.level = try .init(Level.LevelID.zero, 30, 30, self.allocator);
         self.collision = rl.RayCollision{ .hit = false, .distance = 0, .point = .zero(), .normal = .zero() };
 
         // Init Scene here --> Läuft EINMAL beim Start
@@ -46,7 +48,7 @@ pub const EditorScene = struct {
             self.level.draw_grid();
 
             if (self.collision.hit) {
-                rl.drawCube(self.collision.point, 1, 0.1, 1, .red);
+                rl.drawCube(self.collision.point, 0.5, 0.1, 0.5, .red);
             }
         }
     }
@@ -57,7 +59,7 @@ pub const EditorScene = struct {
     }
 
     fn getInput(self: *EditorScene, context: *SceneContext) anyerror!bool {
-        if (rl.isKeyDown(.m)) {
+        if (rl.isKeyPressed(.m)) {
             try self.level.export_level(self.allocator);
             try context.switchTo(SceneId.menu);
             return true;
@@ -68,12 +70,31 @@ pub const EditorScene = struct {
             self.collision.hit = true;
             self.collision.point = tile.world;
             if (rl.isMouseButtonPressed(.right)) {
-                self.level.grid[tile.x][tile.z] = .{ .id = .simple };
+                self.level.grid[tile.x][tile.z] = .{ .id = self.current_block_id };
             }
             if (rl.isMouseButtonPressed(.left)) {
                 self.level.grid[tile.x][tile.z] = .{ .id = .empty };
             }
         }
+
+        if (rl.isKeyDown(.one)) {
+            try self.level.export_level(self.allocator);
+            Level.deinit_grid(self.level.grid, self.allocator);
+            self.level = try Level.inport_level(.one, self.allocator);
+        }
+        if (rl.isKeyDown(.zero)) {
+            try self.level.export_level(self.allocator);
+            Level.deinit_grid(self.level.grid, self.allocator);
+            self.level = try Level.init(.zero, 30, 30, self.allocator);
+        }
+        if (rl.isKeyDown(.f))
+            self.current_block_id = .simple;
+        if (rl.isKeyDown(.b))
+            self.current_block_id = .blue;
+        if (rl.isKeyDown(.r))
+            self.current_block_id = .red;
+        if (rl.isKeyDown(.g))
+            self.current_block_id = .green;
 
         if (rl.isKeyDown(.left_shift)) {
             self.camera.camera.update(.first_person);

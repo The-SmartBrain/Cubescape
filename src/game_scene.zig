@@ -32,7 +32,7 @@ pub const GameScene = struct {
         self.player = try .init();
 
         self.camera.follow_fn = Camera.simple_follow;
-        self.level = try .init(Level.LevelID.one, 20, 20, self.allocator);
+        self.level = try Level.inport_level(.one, self.allocator);
         self.camera.update(self.player.origin);
 
         // Init Scene here --> Läuft EINMAL beim Start

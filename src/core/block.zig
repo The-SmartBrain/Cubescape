@@ -3,5 +3,8 @@ pub const Block = struct {
     pub const BlockID = enum {
         empty,
         simple,
+        green,
+        blue,
+        red,
     };
 };

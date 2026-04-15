@@ -20,9 +20,14 @@ pub const Level = struct {
         for (self.grid, 0..) |row, i| {
             for (row, 0..) |block, j| {
                 if (block.id != .empty) {
+                    var color: rl.Color = .dark_gray;
+                    if (block.id == .green) color = .green;
+                    if (block.id == .blue) color = .blue;
+                    if (block.id == .red) color = .red;
                     const x: f32 = @as(f32, @floatFromInt(i)) - width / 2 + 1;
                     const z: f32 = @as(f32, @floatFromInt(j)) - length / 2 + 1;
-                    rl.drawCube(.{ .x = x, .z = z, .y = -0.5 }, 1, 1, 1, .dark_gray);
+
+                    rl.drawCube(.{ .x = x, .z = z, .y = -0.5 }, 1, 1, 1, color);
                 }
             }
         }
@@ -75,14 +80,15 @@ pub const Level = struct {
             rl.drawLine3D(.{ .x = center.x - halfW, .y = center.y, .z = center.z + z }, .{ .x = center.x + halfW, .y = center.y, .z = center.z + z }, .gray);
         }
     }
-    pub const LevelID = enum { one };
+    pub const LevelID = enum { one, zero };
 
     pub fn export_level(self: Level, allocator: std.mem.Allocator) !void {
+        std.debug.print("Exporting Level tag:{s}\n", .{@tagName(self.id)});
         var writer = std.Io.Writer.Allocating.init(allocator);
         defer writer.deinit();
 
         var stringify = std.json.Stringify{ .options = .{}, .writer = &writer.writer };
-        try stringify.write(self);
+        stringify.write(self) catch |err| std.debug.print("error{any}\n", .{err});
 
         const json_data = try writer.toOwnedSlice();
         defer allocator.free(json_data);
