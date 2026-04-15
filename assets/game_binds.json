@@ -1,0 +1,27 @@
+{
+  "roll_east": {
+    "keybind": {
+      "key": "right"
+    }
+  },
+  "roll_north": {
+    "keybind": {
+      "key": "up"
+    }
+  },
+  "roll_south": {
+    "keybind": {
+      "key": "down"
+    }
+  },
+  "roll_west": {
+    "keybind": {
+      "key": "left"
+    }
+  },
+  "to_menu": {
+    "keybind": {
+      "key": "m"
+    }
+  }
+}

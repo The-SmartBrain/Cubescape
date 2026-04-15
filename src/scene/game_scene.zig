@@ -7,6 +7,7 @@ const Player = @import("../core/player.zig").Player;
 const Camera = @import("../core/camera.zig").Camera;
 const Block = @import("../core/block.zig").Block;
 const Level = @import("../core/level.zig").Level;
+const Keybinds = @import("keybinds.zig");
 const overlay = @import("ingame_overlay.zig");
 const Blender_Unit_2_Raylib_Unit = 0.50;
 
@@ -21,6 +22,7 @@ pub const GameScene = struct {
     player: Player,
     current_moves: u8,
     level: Level,
+    keylist: Keybinds.BindList,
     // Setting default values WILL NOT work because the scene struct is initialised using an allocator instead of the normal way,
     // every value is thus set to its 0 value;
 
@@ -39,6 +41,7 @@ pub const GameScene = struct {
             return;
         };
         self.camera.update(self.player.origin);
+        self.keylist = try .import_init("game_binds", self.allocator);
 
         // Init Scene here --> Läuft EINMAL beim Start
         self.current_moves = 0;
@@ -85,23 +88,24 @@ pub const GameScene = struct {
     pub fn onCleanup(self: *GameScene, context: *SceneContext) anyerror!void {
         std.log.info("Game Scene Cleaning up...", .{});
         self.level.deinit_grid(context.allocator);
+        self.keylist.deinit();
     }
 
     fn getInput(self: *GameScene, context: *SceneContext) anyerror!bool {
-        if (rl.isKeyDown(.m)) {
+        if (self.keylist.check(.to_menu, .isDown)) {
             try context.switchTo(SceneId.menu);
             return true;
         }
-        if (rl.isKeyDown(.up)) {
+        if (self.keylist.check(.roll_north, .isDown)) {
             if (self.player.roll(.north)) self.current_moves += 1;
         }
-        if (rl.isKeyDown(.down)) {
+        if (self.keylist.check(.roll_south, .isDown)) {
             if (self.player.roll(.south)) self.current_moves += 1;
         }
-        if (rl.isKeyDown(.left)) {
+        if (self.keylist.check(.roll_west, .isDown)) {
             if (self.player.roll(.west)) self.current_moves += 1;
         }
-        if (rl.isKeyDown(.right)) {
+        if (self.keylist.check(.roll_east, .isDown)) {
             if (self.player.roll(.east)) self.current_moves += 1;
         }
         return false;

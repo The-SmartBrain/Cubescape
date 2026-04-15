@@ -5,6 +5,7 @@ const SceneContext = @import("context.zig").SceneContext;
 const Camera = @import("../core/camera.zig").Camera;
 const Block = @import("../core/block.zig").Block;
 const Level = @import("../core/level.zig").Level;
+const Keybinds = @import("keybinds.zig");
 const GlobalState = @import("../global_state.zig");
 const Blender_Unit_2_Raylib_Unit = 0.50;
 
@@ -14,6 +15,7 @@ pub const EditorScene = struct {
     level: Level,
     collision: rl.RayCollision,
     current_block_id: Block.BlockID,
+    keylist: Keybinds.BindList,
     // Setting default values WILL NOT work because the scene struct is initialised using an allocator instead of the normal way,
     // every value is thus set to its 0 value;
 
@@ -26,6 +28,7 @@ pub const EditorScene = struct {
 
         self.camera.follow_fn = Camera.simple_follow;
         self.current_block_id = .simple;
+        self.keylist = try .import_init("editor_binds", self.allocator);
 
         self.level = Level.import_level(GlobalState.CurrentLevelID, self.allocator) catch |err| blk: {
             std.log.err("Level Could not be loaded {}\n", .{err});
@@ -61,11 +64,14 @@ pub const EditorScene = struct {
     pub fn onCleanup(self: *EditorScene, context: *SceneContext) anyerror!void {
         std.log.info("Editor Scene Cleaning up...", .{});
         self.level.deinit_grid(context.allocator);
+        self.keylist.deinit();
     }
 
     fn getInput(self: *EditorScene, context: *SceneContext) anyerror!bool {
-        if (rl.isKeyPressed(.m)) {
+        const k = self.keylist;
+        if (k.check(.to_menu, .isDown)) {
             try self.level.export_level(self.allocator);
+            try self.keylist.export_json("bind_test");
             try context.switchTo(SceneId.menu);
             return true;
         }
@@ -74,34 +80,35 @@ pub const EditorScene = struct {
         if (screenToTile(self.camera.camera, grid_center, self.level.length, self.level.width)) |tile| {
             self.collision.hit = true;
             self.collision.point = tile.world;
-            if (rl.isMouseButtonPressed(.right)) {
+            if (k.check(.place_block, .isPressed)) {
                 self.level.grid[tile.x][tile.z] = .{ .id = self.current_block_id };
             }
-            if (rl.isMouseButtonPressed(.left)) {
+            if (k.check(.break_block, .isPressed)) {
                 self.level.grid[tile.x][tile.z] = .{ .id = .empty };
             }
         }
 
-        if (rl.isKeyPressed(.one)) {
+        if (k.check(.toolbar_one, .isPressed)) {
             try self.level.export_level(self.allocator);
             self.level.deinit_grid(context.allocator);
             self.level = try Level.import_level(.one, self.allocator);
         }
-        if (rl.isKeyPressed(.zero)) {
+        if (k.check(.toolbar_zero, .isPressed)) {
             try self.level.export_level(self.allocator);
             self.level.deinit_grid(context.allocator);
             self.level = try Level.import_level(.zero, self.allocator);
         }
-        if (rl.isKeyDown(.f))
-            self.current_block_id = .simple;
-        if (rl.isKeyDown(.b))
-            self.current_block_id = .blue;
-        if (rl.isKeyDown(.r))
-            self.current_block_id = .red;
-        if (rl.isKeyDown(.g))
-            self.current_block_id = .green;
 
-        if (rl.isKeyDown(.left_shift)) {
+        if (k.check(.toolbar_two, .isPressed))
+            self.current_block_id = .simple;
+        if (k.check(.toolbar_three, .isPressed))
+            self.current_block_id = .red;
+        if (k.check(.toolbar_four, .isPressed))
+            self.current_block_id = .green;
+        if (k.check(.toolbar_five, .isPressed))
+            self.current_block_id = .blue;
+
+        if (k.check(.mod_fpv, .isDown)) {
             self.camera.camera.update(.first_person);
         } else {
             var forward = self.camera.camera.target
@@ -115,26 +122,26 @@ pub const EditorScene = struct {
             const speed: f32 = 0.5;
 
             // Forward / Backward
-            if (rl.isKeyDown(.w)) {
+            if (k.check(.roll_north, .isDown)) {
                 self.camera.camera.position = .add(self.camera.camera.position, .scale(forward, speed));
             }
-            if (rl.isKeyDown(.s)) {
+            if (k.check(.roll_south, .isDown)) {
                 self.camera.camera.position = .add(self.camera.camera.position, .scale(forward, -speed));
             }
 
             // Left / Right (strafe)
-            if (rl.isKeyDown(.a)) {
+            if (k.check(.roll_east, .isDown)) {
                 self.camera.camera.position = .add(self.camera.camera.position, .scale(right, -speed));
             }
-            if (rl.isKeyDown(.d)) {
+            if (k.check(.roll_west, .isDown)) {
                 self.camera.camera.position = .add(self.camera.camera.position, .scale(right, speed));
             }
 
             // Up / Down
-            if (rl.isKeyDown(.up)) {
+            if (k.check(.go_up, .isDown)) {
                 self.camera.camera.position = .add(self.camera.camera.position, .scale(up, speed));
             }
-            if (rl.isKeyDown(.down)) {
+            if (k.check(.go_down, .isDown)) {
                 self.camera.camera.position = .add(self.camera.camera.position, .scale(up, -speed));
             }
         }

@@ -1,0 +1,50 @@
+{
+  "roll_east": {
+    "keybind": { "key": "d" }
+  },
+  "roll_north": {
+    "keybind": { "key": "w" }
+  },
+  "roll_south": {
+    "keybind": { "key": "s" }
+  },
+  "roll_west": {
+    "keybind": { "key": "a" }
+  },
+  "go_up": {
+    "keybind": { "key": "space" }
+  },
+  "go_down": {
+    "keybind": { "key": "left_shift" }
+  },
+  "to_menu": {
+    "keybind": { "key": "m" }
+  },
+  "break_block": {
+    "mousebind": { "key": "left" }
+  },
+  "place_block": {
+    "mousebind": { "key": "right" }
+  },
+  "toolbar_zero": {
+    "keybind": { "key": "zero" }
+  },
+  "toolbar_one": {
+    "keybind": { "key": "one" }
+  },
+  "toolbar_two": {
+    "keybind": { "key": "two" }
+  },
+  "toolbar_three": {
+    "keybind": { "key": "three" }
+  },
+  "toolbar_four": {
+    "keybind": { "key": "four" }
+  },
+  "toolbar_five": {
+    "keybind": { "key": "five" }
+  },
+  "mod_fpv": {
+    "keybind": { "key": "right_shift" }
+  }
+}
