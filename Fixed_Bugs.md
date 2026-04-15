@@ -8,9 +8,8 @@
 ``` 
         if (rl.isKeyDown(.m)) {                 
             try context.switchTo(SceneId.menu); 
-            return true;                        
+            return;                        
         }                                       
-
 ```
 Die Szene wird aufgeraumt durch `onCleanup()`.Danach laueft jedoch noch die `onUpdate()` Funktion zu Ende,genau da entsteht der Use-After-Free Fehler
 

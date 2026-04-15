@@ -1,6 +1,10 @@
 const std = @import("std");
 const rl = @import("raylib");
 const Block = @import("block.zig").Block;
+const json = std.json;
+const Path = "assets/";
+const json_suffix = ".json";
+const MaxBytesRead: usize = std.math.maxInt(usize);
 
 pub const Level = struct {
     width: u8,
@@ -73,10 +77,46 @@ pub const Level = struct {
     }
     pub const LevelID = enum { one };
 
-    //    pub fn import_level(id: LevelID) !Level {
-    //        _ = id;
-    //    }
-    //    pub fn export_level(self: Level) !void {
-    //        _ = Level;
-    //    }
+    pub fn export_level(self: Level, allocator: std.mem.Allocator) !void {
+        var writer = std.Io.Writer.Allocating.init(allocator);
+        defer writer.deinit();
+
+        var stringify = std.json.Stringify{ .options = .{}, .writer = &writer.writer };
+        try stringify.write(self);
+
+        const json_data = try writer.toOwnedSlice();
+        defer allocator.free(json_data);
+
+        const lvl_name = @tagName(self.id); // return type : [:0] const u8;
+        const full_path = try std.mem.concat(allocator, u8, &[_][]const u8{ Path, lvl_name, json_suffix });
+        defer allocator.free(full_path);
+
+        const file = try std.fs.cwd().createFile(full_path, .{ .truncate = true });
+        defer file.close();
+        var w = file.writer(&[_]u8{});
+        const file_writer = &w.interface;
+        try file_writer.writeAll(json_data);
+        try file_writer.flush();
+    }
+    pub fn inport_level(id: LevelID, allocator: std.mem.Allocator) !Level {
+        const lvl_name = @tagName(id); // return type : [:0] const u8;
+        const full_path = try std.mem.concat(allocator, u8, &[_][]const u8{ Path, lvl_name, json_suffix });
+        defer allocator.free(full_path);
+        const json_data = try std.fs.cwd().readFileAlloc(allocator, full_path, MaxBytesRead);
+        defer allocator.free(json_data);
+        const parsed = try std.json.parseFromSlice(Level, allocator, json_data, .{});
+        defer parsed.deinit();
+        var lvl: Level = parsed.value;
+
+        const grid = try allocator.alloc([]Block, lvl.grid.len);
+        for (lvl.grid, 0..) |old_row, i| {
+            const row = try allocator.alloc(Block, old_row.len);
+            grid[i] = row;
+            for (old_row, 0..) |block, j| {
+                row[j] = block;
+            }
+        }
+        lvl.grid = grid;
+        return lvl;
+    }
 };

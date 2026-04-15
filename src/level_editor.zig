@@ -24,7 +24,7 @@ pub const EditorScene = struct {
 
         self.camera.follow_fn = Camera.simple_follow;
 
-        self.level = try .init(Level.LevelID.one, 10, 10, self.allocator);
+        self.level = try Level.inport_level(.one, self.allocator);
         self.collision = rl.RayCollision{ .hit = false, .distance = 0, .point = .zero(), .normal = .zero() };
 
         // Init Scene here --> Läuft EINMAL beim Start
@@ -58,6 +58,7 @@ pub const EditorScene = struct {
 
     fn getInput(self: *EditorScene, context: *SceneContext) anyerror!bool {
         if (rl.isKeyDown(.m)) {
+            try self.level.export_level(self.allocator);
             try context.switchTo(SceneId.menu);
             return true;
         }
@@ -68,6 +69,9 @@ pub const EditorScene = struct {
             self.collision.point = tile.world;
             if (rl.isMouseButtonPressed(.right)) {
                 self.level.grid[tile.x][tile.z] = .{ .id = .simple };
+            }
+            if (rl.isMouseButtonPressed(.left)) {
+                self.level.grid[tile.x][tile.z] = .{ .id = .empty };
             }
         }
 
