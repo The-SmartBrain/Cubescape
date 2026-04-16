@@ -1,22 +1,22 @@
 {
   "roll_east": {
     "keybind": {
-      "key": "right"
+      "key": "d"
     }
   },
   "roll_north": {
     "keybind": {
-      "key": "up"
+      "key": "w"
     }
   },
   "roll_south": {
     "keybind": {
-      "key": "down"
+      "key": "s"
     }
   },
   "roll_west": {
     "keybind": {
-      "key": "left"
+      "key": "a"
     }
   },
   "to_menu": {
@@ -27,6 +27,11 @@
   "hide_player": {
     "keybind": {
       "key": "space"
+    }
+  },
+  "topdown_view": {
+    "keybind": {
+      "key": "enter"
     }
   }
 }

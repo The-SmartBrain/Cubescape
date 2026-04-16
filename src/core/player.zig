@@ -6,6 +6,7 @@ const Level = @import("level.zig").Level;
 const Fall_Limit = -3.0;
 const PlayerModelPath = "assets/player_model.obj";
 const PlayerTexturePath = "assets/player_texture.png";
+const PlayerHiddenTexturePath = "assets/player_texture_hidden.png";
 
 pub const Vec2 = struct {
     x: usize,

@@ -124,6 +124,7 @@ pub const KeyName = enum {
     toolbar_four,
     toolbar_five,
     toolbar_six,
+    topdown_view,
     mod_fpv,
     clear_lvl,
 };

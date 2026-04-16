@@ -20,7 +20,7 @@ pub const Camera = struct {
     pub fn update(self: *Camera, target_pos: rl.Vector3) void {
         self.camera.target = .{ .x = target_pos.x, .y = 1, .z = target_pos.z };
         if (self.follow_fn != null) {
-            self.camera.position = self.simple_follow(target_pos);
+            self.camera.position = self.follow_fn.?(self, target_pos);
         }
     }
 
@@ -38,6 +38,14 @@ pub const Camera = struct {
             .x = target_pos.x + (self.distance * @cos(self.pitch_rad) * @sin(self.yaw_rad)),
             .y = self.distance * @sin(self.pitch_rad),
             .z = target_pos.z + (self.distance * @cos(self.pitch_rad) * @cos(self.yaw_rad)),
+        };
+    }
+    pub fn top_down(self: *Camera, target_pos: rl.Vector3) rl.Vector3 {
+        _ = self;
+        return .{
+            .x = target_pos.x + 0.1,
+            .y = 30,
+            .z = target_pos.z + 0.1,
         };
     }
 

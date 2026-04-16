@@ -134,8 +134,17 @@ pub const GameScene = struct {
         if (self.keylist.check(.hide_player, .isUp)) {
             self.player.hidden = false;
         }
+        if (self.keylist.check(.topdown_view, .isDown)) {
+            self.camera.follow_fn = Camera.top_down;
+            self.camera.update(self.player.origin);
+        }
+        if (self.keylist.check(.topdown_view, .isUp)) {
+            self.camera.follow_fn = Camera.simple_follow;
+            self.camera.update(self.player.origin);
+        }
         return false;
     }
+
     fn check_falling(lvl: Level, player: Player) bool {
         var stable = true;
         for (player.grid_position.items) |pos| {
