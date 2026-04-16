@@ -32,7 +32,7 @@ pub const GameScene = struct {
         self.allocator = context.allocator;
 
         self.camera = .init(Camera.Default_Distance, 35, rl.Vector3.zero());
-        self.player = try .init();
+        self.player = try .init(self.allocator);
 
         self.camera.follow_fn = Camera.simple_follow;
         self.level = Level.import_level(GlobalState.CurrentLevelID, self.allocator) catch |err| {
@@ -52,7 +52,9 @@ pub const GameScene = struct {
         const player: *Player = &self.player;
 
         if (try self.getInput(context)) return;
-        player.animate(delta_time);
+        player.animate(delta_time) catch |err| {
+            std.log.err("failed to animate player {}\n", .{err});
+        };
 
         self.camera.update(player.origin);
 
@@ -67,6 +69,10 @@ pub const GameScene = struct {
             self.level.draw_grid();
 
             rl.drawModel(player.model, player.origin, Blender_Unit_2_Raylib_Unit, .white);
+            for (player.grid_position.items) |pos| {
+                const v2: rl.Vector3 = .{ .x = @floatFromInt(pos.x), .y = 0, .z = @floatFromInt(pos.y) };
+                rl.drawCube(v2, 1, 0.1, 1, .red);
+            }
         }
 
         rl.drawText(rl.textFormat("Aktuelle Unterseite: 0. %f 1. %f 4. %f 5. %f", .{ player.edges[0], player.edges[1], player.edges[4], player.edges[5] }), 10, 40, 20, .red);
@@ -75,7 +81,7 @@ pub const GameScene = struct {
             player.rotation.y,
             player.rotation.z,
         }), 10, 60, 20, .red);
-        rl.drawText(rl.textFormat("Aktuelle position: %f %f %f ", .{
+        rl.drawText(rl.textFormat("Aktuelle position: x:%f y:%f z:%f ", .{
             player.origin.x,
             player.origin.y,
             player.origin.z,
@@ -88,6 +94,7 @@ pub const GameScene = struct {
     pub fn onCleanup(self: *GameScene, context: *SceneContext) anyerror!void {
         std.log.info("Game Scene Cleaning up...", .{});
         self.level.deinit_grid(context.allocator);
+        try self.player.deinit();
         self.keylist.deinit();
     }
 

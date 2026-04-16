@@ -4,6 +4,10 @@ const deg2rad = std.math.degreesToRadians;
 const rad2deg = std.math.radiansToDegrees;
 const PlayerModelPath = "assets/player_model.obj";
 const PlayerTexturePath = "assets/player_texture.png";
+pub const Vec2 = struct {
+    x: i32,
+    y: i32,
+};
 
 pub const Player = struct {
     pub const Animation = union(enum) {
@@ -11,12 +15,10 @@ pub const Player = struct {
         Rolling: RollingData,
         None: struct {},
     };
-    pub const GridPosition = union(enum) {
-        OneBlock: rl.Vector2,
-        TwoBlock: [2]rl.Vector2,
-    };
+    pub const GridPosition = std.ArrayList(Vec2);
 
-    sides: [6]Side,
+    allocator: std.mem.Allocator,
+    sides: [6]Side, // Ground, North,East,South,West,Top Face
     edges: [12]f32,
     model: rl.Model,
     texture: rl.Texture,
@@ -25,14 +27,17 @@ pub const Player = struct {
     grid_position: GridPosition,
     current_animation: Animation,
 
-    pub fn init() !Player {
+    pub fn init(allocator: std.mem.Allocator) !Player {
         var player: Player = undefined;
+        player.allocator = allocator;
         player.origin = .{ .x = 0, .y = 1, .z = 0 };
         player.rotation = .{ .x = 0, .z = 0, .y = 0 };
         player.current_animation = .None;
         player.model = try rl.loadModel(PlayerModelPath);
-        //        player.model = try rl.loadModelFromMesh(rl.genMeshCube(1, 2, 1));
+        //player.model = try rl.loadModelFromMesh(rl.genMeshCube(1, 2, 1));
         player.edges = [12]f32{ 1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 1 };
+        player.grid_position = try .initCapacity(allocator, 2);
+        try player.grid_position.append(allocator, .{ .x = 0, .y = 0 });
 
         const img = try rl.loadImage(PlayerTexturePath);
         defer rl.unloadImage(img);
@@ -42,7 +47,8 @@ pub const Player = struct {
         return player;
     }
 
-    pub fn deinit(c: Player) !void {
+    pub fn deinit(c: *Player) !void {
+        c.grid_position.deinit(c.allocator);
         rl.unloadTexture(c.texture);
         rl.unloadModel(c.model);
     }
@@ -113,13 +119,13 @@ pub const Player = struct {
         return true;
     }
 
-    pub fn animate(self: *Player, dt: f32) void {
+    pub fn animate(self: *Player, dt: f32) !void {
         switch (self.current_animation) {
-            .Rolling => |data| self.animate_rotation(data, dt),
+            .Rolling => |data| try self.animate_rotation(data, dt),
             .None => return,
         }
     }
-    fn animate_rotation(self: *Player, data: Animation.RollingData, dt: f32) void {
+    fn animate_rotation(self: *Player, data: Animation.RollingData, dt: f32) !void {
         const Rotation_Delta_Deg = 340 * dt; // sweetspot;
 
         const st_rotation = data.rotation;
@@ -156,7 +162,9 @@ pub const Player = struct {
 
                     self.model.transform = data.st_model.transform.multiply(matrix);
                     self.rotation.z = add_wrap(st_rotation.z, 90);
+
                     self.current_animation = .{ .None = .{} };
+                    try self.calculate_occupied_cells();
                     return;
                 }
             },
@@ -189,6 +197,7 @@ pub const Player = struct {
                     self.model.transform = data.st_model.transform.multiply(.rotateZ(deg2rad(-90)));
                     self.rotation.z = add_wrap(st_rotation.z, -90);
                     self.current_animation = .{ .None = .{} };
+                    try self.calculate_occupied_cells();
                     return;
                 }
             },
@@ -224,6 +233,7 @@ pub const Player = struct {
                     self.origin.y = data.starting_origin.y + dy;
 
                     self.current_animation = .{ .None = .{} };
+                    try self.calculate_occupied_cells();
                     return;
                 }
             },
@@ -259,6 +269,7 @@ pub const Player = struct {
                     self.origin.y = data.starting_origin.y + dy;
 
                     self.current_animation = .{ .None = .{} };
+                    try self.calculate_occupied_cells();
                     return;
                 }
             },
@@ -266,6 +277,28 @@ pub const Player = struct {
 
         self.model.transform = self.model.transform.multiply(matrix);
     }
+
+    pub fn calculate_occupied_cells(self: *Player) !void {
+        self.grid_position.clearRetainingCapacity();
+        const a: f32 = self.edges[1]; // guaranteed to be whole numbers
+        const b: f32 = self.edges[0]; // guaranteed to be whole numbers
+        const ul_corner = rl.Vector2{ .x = self.origin.x - a / 2, .y = self.origin.z + b / 2 };
+        const lr_corner = rl.Vector2{ .x = self.origin.x + a / 2, .y = self.origin.z - b / 2 };
+        var x = ul_corner.x + 0.5;
+        var z = ul_corner.y - 0.5;
+
+        while (z >= lr_corner.y) {
+            const z_grid: i32 = @intFromFloat(@round(z)); // @round is REQUIRED, @floor or @trunc will result in wrong coordinate calc
+            while (x <= lr_corner.x) {
+                const x_grid: i32 = @intFromFloat(@round(x));
+                try self.grid_position.append(self.allocator, .{ .x = x_grid, .y = z_grid });
+                x += 1.0;
+            }
+            x = ul_corner.x + 0.5;
+            z -= 1;
+        }
+    }
+
     pub const Side = struct {};
 };
 

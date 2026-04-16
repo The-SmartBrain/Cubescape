@@ -87,7 +87,10 @@ pub const BindList = struct {
                 std.debug.print("unknown key name:{s}\n", .{kv.key_ptr.*});
                 continue;
             };
-            const bind_parsed = try json.parseFromValue(Bind, allocator, kv.value_ptr.*, .{});
+            const bind_parsed = json.parseFromValue(Bind, allocator, kv.value_ptr.*, .{}) catch {
+                std.debug.print("unknown key name:{s}\n", .{kv.key_ptr.*});
+                continue;
+            };
             defer bind_parsed.deinit();
             const bind = bind_parsed.value;
 

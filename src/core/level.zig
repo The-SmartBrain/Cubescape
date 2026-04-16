@@ -75,16 +75,70 @@ pub const Level = struct {
         const halfW = width / 2;
         const halfL = length / 2;
 
+        // Draw grid lines
         var x: f32 = -halfW;
         while (x <= halfW) : (x += spacing) {
-            rl.drawLine3D(.{ .x = center.x + x, .y = center.y, .z = center.z - halfL }, .{ .x = center.x + x, .y = center.y, .z = center.z + halfL }, .gray);
+            const worldX = center.x + x;
+            if (worldX != 0) {
+                rl.drawLine3D(
+                    .{ .x = worldX, .y = center.y, .z = center.z - halfL },
+                    .{ .x = worldX, .y = center.y, .z = center.z + halfL },
+                    .gray,
+                );
+            }
         }
 
         var z: f32 = -halfL;
         while (z <= halfL) : (z += spacing) {
-            rl.drawLine3D(.{ .x = center.x - halfW, .y = center.y, .z = center.z + z }, .{ .x = center.x + halfW, .y = center.y, .z = center.z + z }, .gray);
+            const worldZ = center.z + z;
+            if (worldZ != 0) {
+                rl.drawLine3D(
+                    .{ .x = center.x - halfW, .y = center.y, .z = worldZ },
+                    .{ .x = center.x + halfW, .y = center.y, .z = worldZ },
+                    .gray,
+                );
+            }
         }
+
+        const arrowHeadSize: f32 = spacing * 0.4;
+
+        // X axis arrow (red, along +X)
+        rl.drawLine3D(
+            .{ .x = center.x - halfW, .y = center.y, .z = center.z },
+            .{ .x = center.x + halfW, .y = center.y, .z = center.z },
+            .red,
+        );
+        // Arrowhead for +X
+        rl.drawLine3D(
+            .{ .x = center.x + halfW, .y = center.y, .z = center.z },
+            .{ .x = center.x + halfW - arrowHeadSize, .y = center.y, .z = center.z - arrowHeadSize },
+            .red,
+        );
+        rl.drawLine3D(
+            .{ .x = center.x + halfW, .y = center.y, .z = center.z },
+            .{ .x = center.x + halfW - arrowHeadSize, .y = center.y, .z = center.z + arrowHeadSize },
+            .red,
+        );
+
+        // Z axis arrow (blue, along +Z)
+        rl.drawLine3D(
+            .{ .x = center.x, .y = center.y, .z = center.z - halfL },
+            .{ .x = center.x, .y = center.y, .z = center.z + halfL },
+            .blue,
+        );
+        // Arrowhead for +Z
+        rl.drawLine3D(
+            .{ .x = center.x, .y = center.y, .z = center.z + halfL },
+            .{ .x = center.x - arrowHeadSize, .y = center.y, .z = center.z + halfL - arrowHeadSize },
+            .blue,
+        );
+        rl.drawLine3D(
+            .{ .x = center.x, .y = center.y, .z = center.z + halfL },
+            .{ .x = center.x + arrowHeadSize, .y = center.y, .z = center.z + halfL - arrowHeadSize },
+            .blue,
+        );
     }
+
     pub const LevelID = enum { one, zero };
 
     pub fn export_level(self: Level, allocator: std.mem.Allocator) !void {
