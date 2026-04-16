@@ -81,7 +81,11 @@ pub const EditorScene = struct {
             self.collision.hit = true;
             self.collision.point = tile.world;
             if (k.check(.place_block, .isPressed)) {
-                self.level.grid[tile.x][tile.z] = .{ .id = self.current_block_id };
+                if (self.current_block_id == .spawn_point) {
+                    self.level.starting_point = .{ .x = tile.x, .y = tile.z };
+                } else {
+                    self.level.grid[tile.x][tile.z] = .{ .id = self.current_block_id };
+                }
             }
             if (k.check(.break_block, .isPressed)) {
                 self.level.grid[tile.x][tile.z] = .{ .id = .empty };
@@ -112,6 +116,8 @@ pub const EditorScene = struct {
             self.current_block_id = .green;
         if (k.check(.toolbar_five, .isPressed))
             self.current_block_id = .blue;
+        if (k.check(.toolbar_six, .isPressed))
+            self.current_block_id = .spawn_point;
 
         if (k.check(.mod_fpv, .isDown)) {
             self.camera.camera.update(.first_person);

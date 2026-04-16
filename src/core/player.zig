@@ -2,18 +2,24 @@ const rl = @import("raylib");
 const std = @import("std");
 const deg2rad = std.math.degreesToRadians;
 const rad2deg = std.math.radiansToDegrees;
+const Level = @import("level.zig").Level;
+const Fall_Limit = -3.0;
 const PlayerModelPath = "assets/player_model.obj";
 const PlayerTexturePath = "assets/player_texture.png";
+
 pub const Vec2 = struct {
     x: usize,
     y: usize,
+    pub fn zero() Vec2 {
+        return .{ .x = 0, .y = 0 };
+    }
 };
 pub const PlayerError = error{OutOfBounds};
 
 pub const Player = struct {
     pub const Animation = union(enum) {
         pub const RollingData = struct { st_model: rl.Model, starting_origin: rl.Vector3, rotation: rl.Vector3, old_edges: [12]f32, dir: Direction, lvl_width: u8, lvl_len: u8 };
-        pub const FallingData = struct { tp_to: rl.Vector3, fall_limit: f32, lvl_width: u8, lvl_len: u8 };
+        pub const FallingData = struct { lvl_ptr: *Level };
         Rolling: RollingData,
         Falling: FallingData,
         None: struct {},
@@ -29,6 +35,7 @@ pub const Player = struct {
     rotation: rl.Vector3,
     grid_position: GridPosition,
     current_animation: Animation,
+    hidden: bool,
 
     pub fn init(allocator: std.mem.Allocator) !Player {
         var player: Player = undefined;
@@ -122,9 +129,9 @@ pub const Player = struct {
         return true;
     }
 
-    pub fn fall(self: *Player, tp_to: rl.Vector3, l: u8, w: u8) void {
+    pub fn fall(self: *Player, lvl: *Level) void {
         if (self.current_animation != .None) return;
-        self.current_animation = .{ .Falling = .{ .fall_limit = -3, .tp_to = tp_to, .lvl_len = l, .lvl_width = w } };
+        self.current_animation = .{ .Falling = .{ .lvl_ptr = lvl } };
     }
 
     pub fn animate(self: *Player, dt: f32) !void {
@@ -140,13 +147,15 @@ pub const Player = struct {
             self.model.transform,
             rl.Matrix.rotateXYZ(.{ .x = deg2rad(320 * dt), .z = deg2rad(350 * dt), .y = deg2rad(120 * dt) }),
         );
-        if (self.origin.y < data.fall_limit) {
-            self.origin = data.tp_to;
+        if (self.origin.y < Fall_Limit) {
+            self.edges = [12]f32{ 1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 1 };
             self.model.transform = .identity();
             self.rotation = .zero();
-            self.edges = [12]f32{ 1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 1 };
+            self.origin = data.lvl_ptr.idx_to_coord(data.lvl_ptr.starting_point.x, data.lvl_ptr.starting_point.y);
+            self.origin.y = self.edges[5] / 2;
+
             self.current_animation = .{ .None = .{} };
-            try self.calculate_occupied_cells(data.lvl_len, data.lvl_width);
+            try self.calculate_occupied_cells(data.lvl_ptr.length, data.lvl_ptr.width);
         }
     }
     fn animate_rotation(self: *Player, data: Animation.RollingData, dt: f32) !void {

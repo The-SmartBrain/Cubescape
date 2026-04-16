@@ -6,5 +6,6 @@ pub const Block = struct {
         green,
         blue,
         red,
+        spawn_point,
     };
 };

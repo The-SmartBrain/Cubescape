@@ -10,6 +10,7 @@ const Level = @import("../core/level.zig").Level;
 const Keybinds = @import("keybinds.zig");
 const overlay = @import("ingame_overlay.zig");
 const Blender_Unit_2_Raylib_Unit = 0.50;
+const Blender_Unit_2_Raylib_Unit_Vec: rl.Vector3 = .{ .x = Blender_Unit_2_Raylib_Unit, .y = Blender_Unit_2_Raylib_Unit, .z = Blender_Unit_2_Raylib_Unit };
 
 // Zum Szenenwechsel:
 // try context.switchTo(SceneID.menu); // setzt Context zum Wechseln
@@ -32,19 +33,23 @@ pub const GameScene = struct {
         self.allocator = context.allocator;
 
         self.camera = .init(Camera.Default_Distance, 35, rl.Vector3.zero());
+        self.camera.follow_fn = Camera.simple_follow;
+
         self.player = try .init(self.allocator);
 
-        self.camera.follow_fn = Camera.simple_follow;
         self.level = Level.import_level(GlobalState.CurrentLevelID, self.allocator) catch |err| {
             std.log.err("Level Could not be loaded {}\n", .{err});
             try context.switchTo(SceneId.menu);
             return;
         };
-        const st_point = self.level.starting_point;
-        self.player.origin = .{ .x = st_point.x, .z = st_point.y, .y = self.player.edges[5] / 2 };
-        try self.player.calculate_occupied_cells(self.level.length, self.level.width);
-        self.camera.update(self.player.origin);
         self.keylist = try .import_init("game_binds", self.allocator);
+
+        self.player.origin = self.level.idx_to_coord(self.level.starting_point.x, self.level.starting_point.y);
+        self.player.origin.y = self.player.edges[5] / 2;
+
+        try self.player.calculate_occupied_cells(self.level.length, self.level.width);
+
+        self.camera.update(self.player.origin);
 
         // Init Scene here --> Läuft EINMAL beim Start
         self.current_moves = 0;
@@ -61,8 +66,7 @@ pub const GameScene = struct {
         };
 
         if (check_falling(self.level, self.player)) {
-            std.debug.print("falling\n", .{});
-            player.fall(.{ .x = 0, .y = 1, .z = 0 }, self.level.length, self.level.width);
+            player.fall(&self.level);
         }
 
         self.camera.update(player.origin);
@@ -77,7 +81,11 @@ pub const GameScene = struct {
             Level.draw_2D_grid(.{ .x = 0.5, .y = 0, .z = 0.5 }, width, length, 1);
             self.level.draw_grid();
 
-            rl.drawModel(player.model, player.origin, Blender_Unit_2_Raylib_Unit, .white);
+            if (player.hidden) {
+                rl.drawModelWires(player.model, player.origin, Blender_Unit_2_Raylib_Unit, .white);
+            } else {
+                rl.drawModel(player.model, player.origin, Blender_Unit_2_Raylib_Unit, .white);
+            }
         }
 
         rl.drawText(rl.textFormat("Aktuelle Unterseite: 0. %f 1. %f 4. %f 5. %f", .{ player.edges[0], player.edges[1], player.edges[4], player.edges[5] }), 10, 40, 20, .red);
@@ -119,6 +127,12 @@ pub const GameScene = struct {
         }
         if (self.keylist.check(.roll_east, .isDown)) {
             if (self.player.roll(.east, self.level.width, self.level.length)) self.current_moves += 1;
+        }
+        if (self.keylist.check(.hide_player, .isDown)) {
+            self.player.hidden = true;
+        }
+        if (self.keylist.check(.hide_player, .isUp)) {
+            self.player.hidden = false;
         }
         return false;
     }

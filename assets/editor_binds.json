@@ -74,6 +74,11 @@
       "key": "five"
     }
   },
+  "toolbar_six": {
+    "keybind": {
+      "key": "six"
+    }
+  },
   "mod_fpv": {
     "keybind": {
       "key": "right_shift"

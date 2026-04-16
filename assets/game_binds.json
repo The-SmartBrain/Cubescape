@@ -23,5 +23,10 @@
     "keybind": {
       "key": "m"
     }
+  },
+  "hide_player": {
+    "keybind": {
+      "key": "space"
+    }
   }
 }

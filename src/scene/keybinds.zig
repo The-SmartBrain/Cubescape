@@ -111,6 +111,7 @@ pub const KeyName = enum {
     roll_south,
     roll_east,
     roll_west,
+    hide_player,
     go_up,
     go_down,
     to_menu,
@@ -122,6 +123,7 @@ pub const KeyName = enum {
     toolbar_three,
     toolbar_four,
     toolbar_five,
+    toolbar_six,
     mod_fpv,
     clear_lvl,
 };

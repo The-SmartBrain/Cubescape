@@ -1,6 +1,7 @@
 const std = @import("std");
 const rl = @import("raylib");
 const Block = @import("block.zig").Block;
+const Vec2 = @import("player.zig").Vec2;
 const json = std.json;
 const Path = "assets/levels/";
 const json_suffix = ".json";
@@ -11,15 +12,20 @@ pub const Level = struct {
     length: u8,
     id: LevelID,
     grid_initted: bool,
-    starting_point: rl.Vector2,
-    finish: rl.Vector2,
+    starting_point: Vec2,
+    finish: Vec2,
 
     grid: [][]Block,
+    pub fn idx_to_coord(self: Level, i: usize, j: usize) rl.Vector3 {
+        const length: f32 = @floatFromInt(self.length);
+        const width: f32 = @floatFromInt(self.width);
+        const x: f32 = @as(f32, @floatFromInt(i)) - width / 2 + 1;
+        const z: f32 = @as(f32, @floatFromInt(j)) - length / 2 + 1;
+        return .{ .x = x, .y = -0.5, .z = z };
+    }
 
     pub fn draw_grid(self: *Level) void {
         if (!self.grid_initted) return;
-        const length: f32 = @floatFromInt(self.length);
-        const width: f32 = @floatFromInt(self.width);
         for (self.grid, 0..) |row, i| {
             for (row, 0..) |block, j| {
                 if (block.id != .empty) {
@@ -27,13 +33,15 @@ pub const Level = struct {
                     if (block.id == .green) color = .green;
                     if (block.id == .blue) color = .blue;
                     if (block.id == .red) color = .red;
-                    const x: f32 = @as(f32, @floatFromInt(i)) - width / 2 + 1;
-                    const z: f32 = @as(f32, @floatFromInt(j)) - length / 2 + 1;
 
-                    rl.drawCube(.{ .x = x, .z = z, .y = -0.5 }, 1, 1, 1, color);
+                    rl.drawCube(self.idx_to_coord(i, j), 1, 1, 1, color);
                 }
             }
         }
+
+        var spawn = self.idx_to_coord(self.starting_point.x, self.starting_point.y);
+        spawn.y = 0;
+        rl.drawCube(spawn, 0.5, 0.1, 0.5, .gold);
     }
 
     pub fn init(id: LevelID, length: u8, width: u8, alloator: std.mem.Allocator) !Level {
