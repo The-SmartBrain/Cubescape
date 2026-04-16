@@ -90,15 +90,20 @@ pub const EditorScene = struct {
 
         if (k.check(.toolbar_one, .isPressed)) {
             try self.level.export_level(self.allocator);
-            self.level.deinit_grid(context.allocator);
+            self.level.deinit_grid(self.allocator);
             self.level = try Level.import_level(.one, self.allocator);
         }
         if (k.check(.toolbar_zero, .isPressed)) {
             try self.level.export_level(self.allocator);
-            self.level.deinit_grid(context.allocator);
+            self.level.deinit_grid(self.allocator);
             self.level = try Level.import_level(.zero, self.allocator);
         }
 
+        if (k.check(.clear_lvl, .isPressed)) {
+            self.level.deinit_grid(self.allocator);
+            self.level.grid_initted = true;
+            self.level.grid = try Level.init_grid(self.level.length, self.level.width, self.allocator);
+        }
         if (k.check(.toolbar_two, .isPressed))
             self.current_block_id = .simple;
         if (k.check(.toolbar_three, .isPressed))

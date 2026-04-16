@@ -40,6 +40,9 @@ pub const GameScene = struct {
             try context.switchTo(SceneId.menu);
             return;
         };
+        const st_point = self.level.starting_point;
+        self.player.origin = .{ .x = st_point.x, .z = st_point.y, .y = self.player.edges[5] / 2 };
+        try self.player.calculate_occupied_cells(self.level.length, self.level.width);
         self.camera.update(self.player.origin);
         self.keylist = try .import_init("game_binds", self.allocator);
 
@@ -52,9 +55,15 @@ pub const GameScene = struct {
         const player: *Player = &self.player;
 
         if (try self.getInput(context)) return;
+
         player.animate(delta_time) catch |err| {
             std.log.err("failed to animate player {}\n", .{err});
         };
+
+        if (check_falling(self.level, self.player)) {
+            std.debug.print("falling\n", .{});
+            player.fall(.{ .x = 0, .y = 1, .z = 0 }, self.level.length, self.level.width);
+        }
 
         self.camera.update(player.origin);
 
@@ -69,10 +78,6 @@ pub const GameScene = struct {
             self.level.draw_grid();
 
             rl.drawModel(player.model, player.origin, Blender_Unit_2_Raylib_Unit, .white);
-            for (player.grid_position.items) |pos| {
-                const v2: rl.Vector3 = .{ .x = @floatFromInt(pos.x), .y = 0, .z = @floatFromInt(pos.y) };
-                rl.drawCube(v2, 1, 0.1, 1, .red);
-            }
         }
 
         rl.drawText(rl.textFormat("Aktuelle Unterseite: 0. %f 1. %f 4. %f 5. %f", .{ player.edges[0], player.edges[1], player.edges[4], player.edges[5] }), 10, 40, 20, .red);
@@ -104,17 +109,27 @@ pub const GameScene = struct {
             return true;
         }
         if (self.keylist.check(.roll_north, .isDown)) {
-            if (self.player.roll(.north)) self.current_moves += 1;
+            if (self.player.roll(.north, self.level.width, self.level.length)) self.current_moves += 1;
         }
         if (self.keylist.check(.roll_south, .isDown)) {
-            if (self.player.roll(.south)) self.current_moves += 1;
+            if (self.player.roll(.south, self.level.width, self.level.length)) self.current_moves += 1;
         }
         if (self.keylist.check(.roll_west, .isDown)) {
-            if (self.player.roll(.west)) self.current_moves += 1;
+            if (self.player.roll(.west, self.level.width, self.level.length)) self.current_moves += 1;
         }
         if (self.keylist.check(.roll_east, .isDown)) {
-            if (self.player.roll(.east)) self.current_moves += 1;
+            if (self.player.roll(.east, self.level.width, self.level.length)) self.current_moves += 1;
         }
         return false;
+    }
+    fn check_falling(lvl: Level, player: Player) bool {
+        var stable = true;
+        for (player.grid_position.items) |pos| {
+            if (lvl.grid[pos.x][pos.y].id != .empty) {
+                stable = true;
+                return false;
+            }
+        }
+        return stable;
     }
 };

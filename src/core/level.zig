@@ -15,6 +15,7 @@ pub const Level = struct {
     finish: rl.Vector2,
 
     grid: [][]Block,
+
     pub fn draw_grid(self: *Level) void {
         if (!self.grid_initted) return;
         const length: f32 = @floatFromInt(self.length);
@@ -39,7 +40,7 @@ pub const Level = struct {
         const lvl: Level = .{
             // zif fmt: off
             .finish = .zero(),
-            .starting_point = .zero(),
+            .starting_point = .{ .x = 0, .y = 0 },
             .id = id,
             .width = width,
             .length = length,

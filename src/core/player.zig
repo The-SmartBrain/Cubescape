@@ -5,14 +5,17 @@ const rad2deg = std.math.radiansToDegrees;
 const PlayerModelPath = "assets/player_model.obj";
 const PlayerTexturePath = "assets/player_texture.png";
 pub const Vec2 = struct {
-    x: i32,
-    y: i32,
+    x: usize,
+    y: usize,
 };
+pub const PlayerError = error{OutOfBounds};
 
 pub const Player = struct {
     pub const Animation = union(enum) {
-        pub const RollingData = struct { st_model: rl.Model, starting_origin: rl.Vector3, rotation: rl.Vector3, old_edges: [12]f32, dir: Direction };
+        pub const RollingData = struct { st_model: rl.Model, starting_origin: rl.Vector3, rotation: rl.Vector3, old_edges: [12]f32, dir: Direction, lvl_width: u8, lvl_len: u8 };
+        pub const FallingData = struct { tp_to: rl.Vector3, fall_limit: f32, lvl_width: u8, lvl_len: u8 };
         Rolling: RollingData,
+        Falling: FallingData,
         None: struct {},
     };
     pub const GridPosition = std.ArrayList(Vec2);
@@ -34,7 +37,7 @@ pub const Player = struct {
         player.rotation = .{ .x = 0, .z = 0, .y = 0 };
         player.current_animation = .None;
         player.model = try rl.loadModel(PlayerModelPath);
-        //player.model = try rl.loadModelFromMesh(rl.genMeshCube(1, 2, 1));
+
         player.edges = [12]f32{ 1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 1 };
         player.grid_position = try .initCapacity(allocator, 2);
         try player.grid_position.append(allocator, .{ .x = 0, .y = 0 });
@@ -53,7 +56,7 @@ pub const Player = struct {
         rl.unloadModel(c.model);
     }
 
-    pub fn roll(self: *Player, dir: Direction) bool {
+    pub fn roll(self: *Player, dir: Direction, lvl_w: u8, lvl_l: u8) bool {
         if (self.current_animation != .None) return false;
         var new_edges: [12]f32 = undefined;
         switch (dir) {
@@ -114,15 +117,29 @@ pub const Player = struct {
                 new_edges[9] = self.edges[11];
             },
         }
-        self.current_animation = .{ .Rolling = .{ .st_model = self.model, .starting_origin = self.origin, .rotation = self.rotation, .old_edges = self.edges, .dir = dir } };
+        self.current_animation = .{ .Rolling = .{ .st_model = self.model, .starting_origin = self.origin, .rotation = self.rotation, .old_edges = self.edges, .dir = dir, .lvl_len = lvl_l, .lvl_width = lvl_w } };
         self.edges = new_edges;
         return true;
+    }
+
+    pub fn fall(self: *Player, tp_to: rl.Vector3, l: u8, w: u8) void {
+        if (self.current_animation != .None) return;
+        self.current_animation = .{ .Falling = .{ .fall_limit = -3, .tp_to = tp_to, .lvl_len = l, .lvl_width = w } };
     }
 
     pub fn animate(self: *Player, dt: f32) !void {
         switch (self.current_animation) {
             .Rolling => |data| try self.animate_rotation(data, dt),
+            .Falling => |data| try self.animate_fall(data, dt),
             .None => return,
+        }
+    }
+    fn animate_fall(self: *Player, data: Animation.FallingData, dt: f32) !void {
+        self.origin.y -= 4 * dt;
+        if (self.origin.y < data.fall_limit) {
+            self.origin = data.tp_to;
+            self.current_animation = .{ .None = .{} };
+            try self.calculate_occupied_cells(data.lvl_len, data.lvl_width);
         }
     }
     fn animate_rotation(self: *Player, data: Animation.RollingData, dt: f32) !void {
@@ -164,7 +181,9 @@ pub const Player = struct {
                     self.rotation.z = add_wrap(st_rotation.z, 90);
 
                     self.current_animation = .{ .None = .{} };
-                    try self.calculate_occupied_cells();
+                    self.calculate_occupied_cells(data.lvl_len, data.lvl_width) catch |err| {
+                        if (err == PlayerError.OutOfBounds) _ = self.roll(.south, data.lvl_width, data.lvl_len);
+                    };
                     return;
                 }
             },
@@ -197,7 +216,9 @@ pub const Player = struct {
                     self.model.transform = data.st_model.transform.multiply(.rotateZ(deg2rad(-90)));
                     self.rotation.z = add_wrap(st_rotation.z, -90);
                     self.current_animation = .{ .None = .{} };
-                    try self.calculate_occupied_cells();
+                    self.calculate_occupied_cells(data.lvl_len, data.lvl_width) catch |err| {
+                        if (err == PlayerError.OutOfBounds) _ = self.roll(.north, data.lvl_width, data.lvl_len);
+                    };
                     return;
                 }
             },
@@ -233,7 +254,9 @@ pub const Player = struct {
                     self.origin.y = data.starting_origin.y + dy;
 
                     self.current_animation = .{ .None = .{} };
-                    try self.calculate_occupied_cells();
+                    self.calculate_occupied_cells(data.lvl_len, data.lvl_width) catch |err| {
+                        if (err == PlayerError.OutOfBounds) _ = self.roll(.west, data.lvl_width, data.lvl_len);
+                    };
                     return;
                 }
             },
@@ -269,7 +292,9 @@ pub const Player = struct {
                     self.origin.y = data.starting_origin.y + dy;
 
                     self.current_animation = .{ .None = .{} };
-                    try self.calculate_occupied_cells();
+                    self.calculate_occupied_cells(data.lvl_len, data.lvl_width) catch |err| {
+                        if (err == PlayerError.OutOfBounds) _ = self.roll(.east, data.lvl_width, data.lvl_len);
+                    };
                     return;
                 }
             },
@@ -278,7 +303,7 @@ pub const Player = struct {
         self.model.transform = self.model.transform.multiply(matrix);
     }
 
-    pub fn calculate_occupied_cells(self: *Player) !void {
+    pub fn calculate_occupied_cells(self: *Player, lvl_l: u8, lvl_w: u8) !void {
         self.grid_position.clearRetainingCapacity();
         const a: f32 = self.edges[1]; // guaranteed to be whole numbers
         const b: f32 = self.edges[0]; // guaranteed to be whole numbers
@@ -288,15 +313,30 @@ pub const Player = struct {
         var z = ul_corner.y - 0.5;
 
         while (z >= lr_corner.y) {
-            const z_grid: i32 = @intFromFloat(@round(z)); // @round is REQUIRED, @floor or @trunc will result in wrong coordinate calc
+            const z_round: i32 = @intFromFloat(@round(z)); // @round is REQUIRED, @floor or @trunc will result in wrong coordinate calc
             while (x <= lr_corner.x) {
-                const x_grid: i32 = @intFromFloat(@round(x));
-                try self.grid_position.append(self.allocator, .{ .x = x_grid, .y = z_grid });
+                const x_round: i32 = @intFromFloat(@round(x));
+                const v2 = index_from_2d(x_round, z_round, lvl_l, lvl_w) orelse return PlayerError.OutOfBounds;
+                try self.grid_position.append(self.allocator, v2);
                 x += 1.0;
             }
             x = ul_corner.x + 0.5;
             z -= 1;
         }
+    }
+
+    fn index_from_2d(x: i32, y: i32, l: u8, w: u8) ?Vec2 {
+        const width: f32 = @floatFromInt(w);
+        const length: f32 = @floatFromInt(l);
+        const xf: f32 = @floatFromInt(x);
+        const yf: f32 = @floatFromInt(y);
+
+        const i: f32 = xf + width / 2 - 1;
+        const j: f32 = yf + length / 2 - 1;
+
+        if (i < 0 or j < 0 or i >= width or j >= length) return null;
+
+        return .{ .x = @intFromFloat(i), .y = @intFromFloat(j) };
     }
 
     pub const Side = struct {};

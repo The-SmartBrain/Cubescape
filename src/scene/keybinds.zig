@@ -123,6 +123,7 @@ pub const KeyName = enum {
     toolbar_four,
     toolbar_five,
     mod_fpv,
+    clear_lvl,
 };
 
 pub const Bind = union(enum) {
