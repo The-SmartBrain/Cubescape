@@ -136,8 +136,15 @@ pub const Player = struct {
     }
     fn animate_fall(self: *Player, data: Animation.FallingData, dt: f32) !void {
         self.origin.y -= 4 * dt;
+        self.model.transform = .multiply(
+            self.model.transform,
+            rl.Matrix.rotateXYZ(.{ .x = deg2rad(320 * dt), .z = deg2rad(350 * dt), .y = deg2rad(120 * dt) }),
+        );
         if (self.origin.y < data.fall_limit) {
             self.origin = data.tp_to;
+            self.model.transform = .identity();
+            self.rotation = .zero();
+            self.edges = [12]f32{ 1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 1 };
             self.current_animation = .{ .None = .{} };
             try self.calculate_occupied_cells(data.lvl_len, data.lvl_width);
         }
