@@ -6,7 +6,8 @@ const Level = @import("level.zig").Level;
 const Fall_Limit = -3.0;
 const PlayerModelPath = "assets/player_model.obj";
 const PlayerTexturePath = "assets/player_texture.png";
-const PlayerHiddenTexturePath = "assets/player_texture_hidden.png";
+const MaskShaderPath = "assets/shaders/mask.fs";
+const MaskTexturePath = "assets/mask.png";
 
 pub const Vec2 = struct {
     x: usize,
@@ -29,9 +30,13 @@ pub const Player = struct {
 
     allocator: std.mem.Allocator,
     sides: [6]Side, // Ground, North,East,South,West,Top Face
+    normal_edges: [12]f32,
     edges: [12]f32,
     model: rl.Model,
-    texture: rl.Texture,
+    colorTexture: rl.Texture,
+    maskTexture: rl.Texture,
+    maskShader: rl.Shader,
+    useMaskLoc: i32,
     origin: rl.Vector3,
     rotation: rl.Vector3,
     grid_position: GridPosition,
@@ -45,97 +50,42 @@ pub const Player = struct {
         player.rotation = .{ .x = 0, .z = 0, .y = 0 };
         player.current_animation = .None;
         player.model = try rl.loadModel(PlayerModelPath);
+        player.hidden = false;
 
-        player.edges = [12]f32{ 1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 1 };
+        player.normal_edges = [12]f32{ 1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 1 };
+        player.edges = player.normal_edges;
         player.grid_position = try .initCapacity(allocator, 2);
         try player.grid_position.append(allocator, .{ .x = 0, .y = 0 });
 
-        const img = try rl.loadImage(PlayerTexturePath);
-        defer rl.unloadImage(img);
+        {
+            player.colorTexture = try rl.loadTexture(PlayerTexturePath);
+            player.model.materials[0].maps[@intFromEnum(rl.MaterialMapIndex.albedo)].texture = player.colorTexture;
 
-        player.texture = try rl.loadTextureFromImage(img);
-        player.model.materials[0].maps[@intFromEnum(rl.MaterialMapIndex.albedo)].texture = player.texture;
+            player.maskTexture = try rl.loadTexture(MaskTexturePath);
+            player.model.materials[0].maps[@intFromEnum(rl.MaterialMapIndex.emission)].texture = player.maskTexture;
+
+            player.maskShader = try rl.loadShader(null, MaskShaderPath);
+            player.maskShader.locs[@intFromEnum(rl.ShaderLocationIndex.map_emission)] = rl.getShaderLocation(player.maskShader, "mask");
+            player.useMaskLoc = rl.getShaderLocation(player.maskShader, "useMask");
+            const false_int: i32 = 0;
+            rl.setShaderValue(player.maskShader, player.useMaskLoc, &false_int, rl.ShaderUniformDataType.int);
+            player.model.materials[0].shader = player.maskShader;
+        }
         return player;
     }
 
     pub fn deinit(c: *Player) !void {
         c.grid_position.deinit(c.allocator);
-        rl.unloadTexture(c.texture);
+        rl.unloadTexture(c.colorTexture);
+        rl.unloadTexture(c.maskTexture);
+        rl.unloadShader(c.maskShader);
         rl.unloadModel(c.model);
     }
 
-    pub fn roll(self: *Player, dir: Direction, lvl_w: u8, lvl_l: u8) bool {
-        if (self.current_animation != .None) return false;
-        var new_edges: [12]f32 = undefined;
-        switch (dir) {
-            .north => {
-                new_edges[8] = self.edges[0];
-                new_edges[5] = self.edges[1];
-                new_edges[0] = self.edges[2];
-                new_edges[4] = self.edges[3];
-                new_edges[11] = self.edges[4];
-                new_edges[9] = self.edges[5];
-                new_edges[1] = self.edges[6];
-                new_edges[3] = self.edges[7];
-                new_edges[10] = self.edges[8];
-                new_edges[6] = self.edges[9];
-                new_edges[2] = self.edges[10];
-                new_edges[7] = self.edges[11];
-            },
-            .south => {
-                new_edges[2] = self.edges[0];
-                new_edges[6] = self.edges[1];
-                new_edges[10] = self.edges[2];
-                new_edges[7] = self.edges[3];
-                new_edges[3] = self.edges[4];
-                new_edges[1] = self.edges[5];
-                new_edges[9] = self.edges[6];
-                new_edges[11] = self.edges[7];
-                new_edges[0] = self.edges[8];
-                new_edges[5] = self.edges[9];
-                new_edges[8] = self.edges[10];
-                new_edges[4] = self.edges[11];
-            },
-            .east => {
-                new_edges[5] = self.edges[0];
-                new_edges[9] = self.edges[1];
-                new_edges[6] = self.edges[2];
-                new_edges[1] = self.edges[3];
-                new_edges[0] = self.edges[4];
-                new_edges[8] = self.edges[5];
-                new_edges[10] = self.edges[6];
-                new_edges[2] = self.edges[7];
-                new_edges[4] = self.edges[8];
-                new_edges[11] = self.edges[9];
-                new_edges[7] = self.edges[10];
-                new_edges[3] = self.edges[11];
-            },
-            .west => {
-                new_edges[4] = self.edges[0];
-                new_edges[3] = self.edges[1];
-                new_edges[7] = self.edges[2];
-                new_edges[11] = self.edges[3];
-                new_edges[8] = self.edges[4];
-                new_edges[0] = self.edges[5];
-                new_edges[2] = self.edges[6];
-                new_edges[10] = self.edges[7];
-                new_edges[5] = self.edges[8];
-                new_edges[1] = self.edges[9];
-                new_edges[6] = self.edges[10];
-                new_edges[9] = self.edges[11];
-            },
-        }
-        self.current_animation = .{ .Rolling = .{ .st_model = self.model, .starting_origin = self.origin, .rotation = self.rotation, .old_edges = self.edges, .dir = dir, .lvl_len = lvl_l, .lvl_width = lvl_w } };
-        self.edges = new_edges;
-        return true;
-    }
-
-    pub fn fall(self: *Player, lvl: *Level) void {
-        if (self.current_animation != .None) return;
-        self.current_animation = .{ .Falling = .{ .lvl_ptr = lvl } };
-    }
-
     pub fn animate(self: *Player, dt: f32) !void {
+        const mask_val: i32 = @intFromBool(self.hidden);
+        rl.setShaderValue(self.maskShader, self.useMaskLoc, &mask_val, rl.ShaderUniformDataType.int);
+
         switch (self.current_animation) {
             .Rolling => |data| try self.animate_rotation(data, dt),
             .Falling => |data| try self.animate_fall(data, dt),
@@ -149,7 +99,7 @@ pub const Player = struct {
             rl.Matrix.rotateXYZ(.{ .x = deg2rad(320 * dt), .z = deg2rad(350 * dt), .y = deg2rad(120 * dt) }),
         );
         if (self.origin.y < Fall_Limit) {
-            self.edges = [12]f32{ 1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 1 };
+            self.edges = self.normal_edges;
             self.model.transform = .identity();
             self.rotation = .zero();
             self.origin = data.lvl_ptr.idx_to_coord(data.lvl_ptr.starting_point.x, data.lvl_ptr.starting_point.y);
@@ -318,6 +268,76 @@ pub const Player = struct {
         }
 
         self.model.transform = self.model.transform.multiply(matrix);
+    }
+    pub fn roll(self: *Player, dir: Direction, lvl_w: u8, lvl_l: u8) bool {
+        if (self.current_animation != .None) return false;
+        var new_edges: [12]f32 = undefined;
+        switch (dir) {
+            .north => {
+                new_edges[8] = self.edges[0];
+                new_edges[5] = self.edges[1];
+                new_edges[0] = self.edges[2];
+                new_edges[4] = self.edges[3];
+                new_edges[11] = self.edges[4];
+                new_edges[9] = self.edges[5];
+                new_edges[1] = self.edges[6];
+                new_edges[3] = self.edges[7];
+                new_edges[10] = self.edges[8];
+                new_edges[6] = self.edges[9];
+                new_edges[2] = self.edges[10];
+                new_edges[7] = self.edges[11];
+            },
+            .south => {
+                new_edges[2] = self.edges[0];
+                new_edges[6] = self.edges[1];
+                new_edges[10] = self.edges[2];
+                new_edges[7] = self.edges[3];
+                new_edges[3] = self.edges[4];
+                new_edges[1] = self.edges[5];
+                new_edges[9] = self.edges[6];
+                new_edges[11] = self.edges[7];
+                new_edges[0] = self.edges[8];
+                new_edges[5] = self.edges[9];
+                new_edges[8] = self.edges[10];
+                new_edges[4] = self.edges[11];
+            },
+            .east => {
+                new_edges[5] = self.edges[0];
+                new_edges[9] = self.edges[1];
+                new_edges[6] = self.edges[2];
+                new_edges[1] = self.edges[3];
+                new_edges[0] = self.edges[4];
+                new_edges[8] = self.edges[5];
+                new_edges[10] = self.edges[6];
+                new_edges[2] = self.edges[7];
+                new_edges[4] = self.edges[8];
+                new_edges[11] = self.edges[9];
+                new_edges[7] = self.edges[10];
+                new_edges[3] = self.edges[11];
+            },
+            .west => {
+                new_edges[4] = self.edges[0];
+                new_edges[3] = self.edges[1];
+                new_edges[7] = self.edges[2];
+                new_edges[11] = self.edges[3];
+                new_edges[8] = self.edges[4];
+                new_edges[0] = self.edges[5];
+                new_edges[2] = self.edges[6];
+                new_edges[10] = self.edges[7];
+                new_edges[5] = self.edges[8];
+                new_edges[1] = self.edges[9];
+                new_edges[6] = self.edges[10];
+                new_edges[9] = self.edges[11];
+            },
+        }
+        self.current_animation = .{ .Rolling = .{ .st_model = self.model, .starting_origin = self.origin, .rotation = self.rotation, .old_edges = self.edges, .dir = dir, .lvl_len = lvl_l, .lvl_width = lvl_w } };
+        self.edges = new_edges;
+        return true;
+    }
+
+    pub fn fall(self: *Player, lvl: *Level) void {
+        if (self.current_animation != .None) return;
+        self.current_animation = .{ .Falling = .{ .lvl_ptr = lvl } };
     }
 
     pub fn calculate_occupied_cells(self: *Player, lvl_l: u8, lvl_w: u8) !void {

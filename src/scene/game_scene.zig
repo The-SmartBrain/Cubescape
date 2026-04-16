@@ -78,14 +78,10 @@ pub const GameScene = struct {
 
             const length: f32 = @floatFromInt(self.level.length);
             const width: f32 = @floatFromInt(self.level.width);
-            Level.draw_2D_grid(.{ .x = 0.5, .y = 0, .z = 0.5 }, width, length, 1);
+            Level.draw_2D_grid(.{ .x = 0.5, .y = 0, .z = 0.5 }, width, length, 1, false);
             self.level.draw_grid();
 
-            if (player.hidden) {
-                rl.drawModelWires(player.model, player.origin, Blender_Unit_2_Raylib_Unit, .white);
-            } else {
-                rl.drawModel(player.model, player.origin, Blender_Unit_2_Raylib_Unit, .white);
-            }
+            rl.drawModel(player.model, player.origin, Blender_Unit_2_Raylib_Unit, .white);
         }
 
         rl.drawText(rl.textFormat("Aktuelle Unterseite: 0. %f 1. %f 4. %f 5. %f", .{ player.edges[0], player.edges[1], player.edges[4], player.edges[5] }), 10, 40, 20, .red);

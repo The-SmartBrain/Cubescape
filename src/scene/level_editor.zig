@@ -52,7 +52,7 @@ pub const EditorScene = struct {
             defer self.camera.end();
             const length: f32 = @floatFromInt(self.level.length);
             const width: f32 = @floatFromInt(self.level.width);
-            Level.draw_2D_grid(.{ .x = 0.5, .y = 0, .z = 0.5 }, width, length, 1);
+            Level.draw_2D_grid(.{ .x = 0.5, .y = 0, .z = 0.5 }, width, length, 1, true);
             self.level.draw_grid();
 
             if (self.collision.hit) {

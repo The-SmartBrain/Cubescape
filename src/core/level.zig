@@ -80,7 +80,7 @@ pub const Level = struct {
         self.grid_initted = false;
     }
 
-    pub fn draw_2D_grid(center: rl.Vector3, width: f32, length: f32, spacing: f32) void {
+    pub fn draw_2D_grid(center: rl.Vector3, width: f32, length: f32, spacing: f32, arrows: bool) void {
         const halfW = width / 2;
         const halfL = length / 2;
 
@@ -109,43 +109,45 @@ pub const Level = struct {
             }
         }
 
-        const arrowHeadSize: f32 = spacing * 0.4;
+        if (arrows) {
+            const arrowHeadSize: f32 = spacing * 0.4;
 
-        // X axis arrow (red, along +X)
-        rl.drawLine3D(
-            .{ .x = center.x - halfW, .y = center.y, .z = center.z },
-            .{ .x = center.x + halfW, .y = center.y, .z = center.z },
-            .red,
-        );
-        // Arrowhead for +X
-        rl.drawLine3D(
-            .{ .x = center.x + halfW, .y = center.y, .z = center.z },
-            .{ .x = center.x + halfW - arrowHeadSize, .y = center.y, .z = center.z - arrowHeadSize },
-            .red,
-        );
-        rl.drawLine3D(
-            .{ .x = center.x + halfW, .y = center.y, .z = center.z },
-            .{ .x = center.x + halfW - arrowHeadSize, .y = center.y, .z = center.z + arrowHeadSize },
-            .red,
-        );
+            // X axis arrow (red, along +X)
+            rl.drawLine3D(
+                .{ .x = center.x - halfW, .y = center.y, .z = center.z },
+                .{ .x = center.x + halfW, .y = center.y, .z = center.z },
+                .red,
+            );
+            // Arrowhead for +X
+            rl.drawLine3D(
+                .{ .x = center.x + halfW, .y = center.y, .z = center.z },
+                .{ .x = center.x + halfW - arrowHeadSize, .y = center.y, .z = center.z - arrowHeadSize },
+                .red,
+            );
+            rl.drawLine3D(
+                .{ .x = center.x + halfW, .y = center.y, .z = center.z },
+                .{ .x = center.x + halfW - arrowHeadSize, .y = center.y, .z = center.z + arrowHeadSize },
+                .red,
+            );
 
-        // Z axis arrow (blue, along +Z)
-        rl.drawLine3D(
-            .{ .x = center.x, .y = center.y, .z = center.z - halfL },
-            .{ .x = center.x, .y = center.y, .z = center.z + halfL },
-            .blue,
-        );
-        // Arrowhead for +Z
-        rl.drawLine3D(
-            .{ .x = center.x, .y = center.y, .z = center.z + halfL },
-            .{ .x = center.x - arrowHeadSize, .y = center.y, .z = center.z + halfL - arrowHeadSize },
-            .blue,
-        );
-        rl.drawLine3D(
-            .{ .x = center.x, .y = center.y, .z = center.z + halfL },
-            .{ .x = center.x + arrowHeadSize, .y = center.y, .z = center.z + halfL - arrowHeadSize },
-            .blue,
-        );
+            // Z axis arrow (blue, along +Z)
+            rl.drawLine3D(
+                .{ .x = center.x, .y = center.y, .z = center.z - halfL },
+                .{ .x = center.x, .y = center.y, .z = center.z + halfL },
+                .blue,
+            );
+            // Arrowhead for +Z
+            rl.drawLine3D(
+                .{ .x = center.x, .y = center.y, .z = center.z + halfL },
+                .{ .x = center.x - arrowHeadSize, .y = center.y, .z = center.z + halfL - arrowHeadSize },
+                .blue,
+            );
+            rl.drawLine3D(
+                .{ .x = center.x, .y = center.y, .z = center.z + halfL },
+                .{ .x = center.x + arrowHeadSize, .y = center.y, .z = center.z + halfL - arrowHeadSize },
+                .blue,
+            );
+        }
     }
 
     pub const LevelID = enum { one, zero };
