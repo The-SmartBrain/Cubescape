@@ -3,7 +3,9 @@ const std = @import("std");
 const deg2rad = std.math.degreesToRadians;
 const rad2deg = std.math.radiansToDegrees;
 const Level = @import("level.zig").Level;
-const Fall_Limit = -3.0;
+const FallLimit = -10;
+const RotationStart = -0.5;
+const FallDuration_s = 1.0;
 const PlayerModelPath = "assets/player_model.obj";
 const PlayerTexturePath = "assets/player_texture.png";
 const MaskShaderPath = "assets/shaders/mask.fs";
@@ -20,8 +22,18 @@ pub const PlayerError = error{OutOfBounds};
 
 pub const Player = struct {
     pub const Animation = union(enum) {
-        pub const RollingData = struct { st_model: rl.Model, starting_origin: rl.Vector3, rotation: rl.Vector3, old_edges: [12]f32, dir: Direction, lvl_width: u8, lvl_len: u8 };
-        pub const FallingData = struct { lvl_ptr: *Level };
+        pub const RollingData = struct {
+            // zig fmt: off
+            st_model: rl.Model,
+            starting_origin: rl.Vector3,
+            rotation: rl.Vector3,
+            old_edges: [12]f32,
+            dir: Direction,
+            lvl_len: u8,
+            lvl_width: u8,
+            // zig fmt: on
+        };
+        pub const FallingData = struct { lvl_ptr: *Level, st_transform: rl.Matrix, fall_time: f32, dir: Direction };
         Rolling: RollingData,
         Falling: FallingData,
         None: struct {},
@@ -37,11 +49,13 @@ pub const Player = struct {
     maskTexture: rl.Texture,
     maskShader: rl.Shader,
     useMaskLoc: i32,
+
     origin: rl.Vector3,
     rotation: rl.Vector3,
     grid_position: GridPosition,
     current_animation: Animation,
     hidden: bool,
+    last_roll: Direction,
 
     pub fn init(allocator: std.mem.Allocator) !Player {
         var player: Player = undefined;
@@ -51,6 +65,7 @@ pub const Player = struct {
         player.current_animation = .None;
         player.model = try rl.loadModel(PlayerModelPath);
         player.hidden = false;
+        player.last_roll = .north;
 
         player.normal_edges = [12]f32{ 1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 1 };
         player.edges = player.normal_edges;
@@ -88,17 +103,29 @@ pub const Player = struct {
 
         switch (self.current_animation) {
             .Rolling => |data| try self.animate_rotation(data, dt),
-            .Falling => |data| try self.animate_fall(data, dt),
+            .Falling => |*data| try self.animate_fall(data, dt),
             .None => return,
         }
     }
-    fn animate_fall(self: *Player, data: Animation.FallingData, dt: f32) !void {
-        self.origin.y -= 4 * dt;
-        self.model.transform = .multiply(
-            self.model.transform,
-            rl.Matrix.rotateXYZ(.{ .x = deg2rad(320 * dt), .z = deg2rad(350 * dt), .y = deg2rad(120 * dt) }),
-        );
-        if (self.origin.y < Fall_Limit) {
+    fn animate_fall(self: *Player, data: *Animation.FallingData, dt: f32) !void {
+        self.origin.y -= 12 * dt;
+        if (self.origin.y < RotationStart) {
+            data.fall_time += dt;
+            var t = data.fall_time / FallDuration_s;
+            if (t > 1.0) t = 0.0;
+            const eased = ease_out_quint(t);
+            const rot_amount = deg2rad(500) * eased;
+            var rot_vector: rl.Vector3 = .zero();
+            switch (data.dir) {
+                .north => rot_vector.z = rot_amount,
+                .south => rot_vector.z = -rot_amount,
+                .east => rot_vector.x = -rot_amount,
+                .west => rot_vector.x = rot_amount,
+            }
+            self.model.transform =
+                data.st_transform.multiply(rl.Matrix.rotateXYZ(rot_vector));
+        }
+        if (self.origin.y < FallLimit) {
             self.edges = self.normal_edges;
             self.model.transform = .identity();
             self.rotation = .zero();
@@ -332,12 +359,13 @@ pub const Player = struct {
         }
         self.current_animation = .{ .Rolling = .{ .st_model = self.model, .starting_origin = self.origin, .rotation = self.rotation, .old_edges = self.edges, .dir = dir, .lvl_len = lvl_l, .lvl_width = lvl_w } };
         self.edges = new_edges;
+        self.last_roll = dir;
         return true;
     }
 
-    pub fn fall(self: *Player, lvl: *Level) void {
+    pub fn fall(self: *Player, lvl: *Level, dir: Direction) void {
         if (self.current_animation != .None) return;
-        self.current_animation = .{ .Falling = .{ .lvl_ptr = lvl } };
+        self.current_animation = .{ .Falling = .{ .lvl_ptr = lvl, .fall_time = 0, .dir = dir, .st_transform = self.model.transform } };
     }
 
     pub fn calculate_occupied_cells(self: *Player, lvl_l: u8, lvl_w: u8) !void {
@@ -392,4 +420,19 @@ pub fn angular_diff(a: f32, b: f32) f32 {
 
 pub fn check_wrap_margin(a: f32, b: f32, margin: f32) bool {
     return angular_diff(a, b) < margin;
+}
+
+inline fn ease_out_quint(x: f32) f32 {
+    return 1 - std.math.pow(f32, 1 - x, 1);
+}
+
+inline fn ease_in(x: f32) f32 {
+    return x * x;
+}
+inline fn ease_in_cubic(x: f32) f32 {
+    return x * x * x;
+}
+
+inline fn easi_in_out_expo(x: f32) f32 {
+    return if (x == 0.0) 0.0 else if (x == 1.0) 1.0 else if (x < 0.5) std.math.pow(f32, 2.0, 20.0 * x - 10.0) / 2.0 else (2.0 - std.math.pow(f32, 2.0, -20.0 * x + 10.0)) / 2.0;
 }

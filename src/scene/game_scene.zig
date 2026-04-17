@@ -65,8 +65,8 @@ pub const GameScene = struct {
             std.log.err("failed to animate player {}\n", .{err});
         };
 
-        if (check_falling(self.level, self.player)) {
-            player.fall(&self.level);
+        if (check_falling(self.level, player.*)) {
+            player.fall(&self.level, player.last_roll);
         }
 
         self.camera.update(player.origin);

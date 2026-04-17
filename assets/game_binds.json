@@ -1,22 +1,22 @@
 {
   "roll_east": {
     "keybind": {
-      "key": "d"
+      "key": "right"
     }
   },
   "roll_north": {
     "keybind": {
-      "key": "w"
+      "key": "up"
     }
   },
   "roll_south": {
     "keybind": {
-      "key": "s"
+      "key": "down"
     }
   },
   "roll_west": {
     "keybind": {
-      "key": "a"
+      "key": "left"
     }
   },
   "to_menu": {
