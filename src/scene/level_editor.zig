@@ -63,7 +63,7 @@ pub const EditorScene = struct {
 
     pub fn onCleanup(self: *EditorScene, context: *SceneContext) anyerror!void {
         std.log.info("Editor Scene Cleaning up...", .{});
-        self.level.deinit_grid(context.allocator);
+        self.level.deinit(context.allocator);
         self.keylist.deinit();
     }
 
@@ -76,19 +76,21 @@ pub const EditorScene = struct {
             return true;
         }
 
-        const grid_center: rl.Vector3 = .{ .x = 0.5, .y = 0, .z = 0.5 };
-        if (screenToTile(self.camera.camera, grid_center, self.level.length, self.level.width)) |tile| {
-            self.collision.hit = true;
-            self.collision.point = tile.world;
-            if (k.check(.place_block, .isPressed)) {
-                if (self.current_block_id == .spawn_point) {
-                    self.level.starting_point = .{ .x = tile.x, .y = tile.z };
-                } else {
-                    self.level.grid[tile.x][tile.z] = .{ .id = self.current_block_id };
+        if (self.level.grid != null) {
+            const grid_center: rl.Vector3 = .{ .x = 0.5, .y = 0, .z = 0.5 };
+            if (screenToTile(self.camera.camera, grid_center, self.level.length, self.level.width)) |tile| {
+                self.collision.hit = true;
+                self.collision.point = tile.world;
+                if (k.check(.place_block, .isPressed)) {
+                    if (self.current_block_id == .spawn_point) {
+                        self.level.starting_point = .{ .x = tile.x, .y = tile.z };
+                    } else {
+                        self.level.grid.?[tile.x][tile.z] = .{ .id = self.current_block_id };
+                    }
                 }
-            }
-            if (k.check(.break_block, .isPressed)) {
-                self.level.grid[tile.x][tile.z] = .{ .id = .empty };
+                if (k.check(.break_block, .isPressed)) {
+                    self.level.grid.?[tile.x][tile.z] = .{ .id = .empty };
+                }
             }
         }
 
@@ -105,7 +107,6 @@ pub const EditorScene = struct {
 
         if (k.check(.clear_lvl, .isPressed)) {
             self.level.deinit_grid(self.allocator);
-            self.level.grid_initted = true;
             self.level.grid = try Level.init_grid(self.level.length, self.level.width, self.allocator);
         }
         if (k.check(.toolbar_two, .isPressed))

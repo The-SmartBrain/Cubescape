@@ -3,19 +3,22 @@ const rl = @import("raylib");
 const Block = @import("block.zig").Block;
 const Vec2 = @import("player.zig").Vec2;
 const json = std.json;
-const Path = "assets/levels/";
+const LevelPath = "assets/levels/";
 const json_suffix = ".json";
 const MaxBytesRead: usize = std.math.maxInt(usize);
+
+const Blender_Unit_2_Raylib_Unit = Block.Blender_Unit_2_Raylib_Unit;
+const BlockModels = std.AutoHashMap(Block.BlockID, rl.Model);
 
 pub const Level = struct {
     width: u8,
     length: u8,
     id: LevelID,
-    grid_initted: bool,
     starting_point: Vec2,
     finish: Vec2,
 
-    grid: [][]Block,
+    grid: ?[][]Block,
+    models: ?BlockModels,
     pub fn idx_to_coord(self: Level, i: usize, j: usize) rl.Vector3 {
         const length: f32 = @floatFromInt(self.length);
         const width: f32 = @floatFromInt(self.width);
@@ -25,16 +28,19 @@ pub const Level = struct {
     }
 
     pub fn draw_grid(self: *Level) void {
-        if (!self.grid_initted) return;
-        for (self.grid, 0..) |row, i| {
+        for (self.grid orelse return, 0..) |row, i| {
             for (row, 0..) |block, j| {
                 if (block.id != .empty) {
-                    var color: rl.Color = .dark_gray;
-                    if (block.id == .green) color = .green;
-                    if (block.id == .blue) color = .blue;
-                    if (block.id == .red) color = .red;
-
-                    rl.drawCube(self.idx_to_coord(i, j), 1, 1, 1, color);
+                    const pos = self.idx_to_coord(i, j);
+                    if (self.models == null) {
+                        rl.drawCube(pos, 1, 1, 1, .red);
+                    } else {
+                        const model = self.models.?.get(block.id) orelse {
+                            rl.drawCube(pos, 1, 1, 1, .red);
+                            continue;
+                        };
+                        rl.drawModel(model, pos, Blender_Unit_2_Raylib_Unit, .white);
+                    }
                 }
             }
         }
@@ -53,7 +59,7 @@ pub const Level = struct {
             .width = width,
             .length = length,
             .grid = try init_grid(length, width, alloator),
-            .grid_initted = true,
+            .models = BlockModels.init(alloator),
             // zif fmt: onn
         };
         return lvl;
@@ -71,13 +77,26 @@ pub const Level = struct {
         return grid;
     }
 
-    pub fn deinit_grid(self: *Level, allocator: std.mem.Allocator) void {
-        if (!self.grid_initted) return;
-        for (self.grid, 0..) |_, i| {
-            allocator.free(self.grid[i]);
+    pub fn deinit(self: *Level, allocator: std.mem.Allocator) void {
+        self.deinit_grid(allocator);
+        self.deinit_models();
+    }
+
+    pub fn deinit_models(self: *Level) void {
+        if (self.models == null) return;
+        var iter = self.models.?.valueIterator();
+        while (iter.next()) |val| {
+            rl.unloadModel(val.*);
         }
-        allocator.free(self.grid);
-        self.grid_initted = false;
+        self.models.?.deinit();
+    }
+
+    pub fn deinit_grid(self: *Level, allocator: std.mem.Allocator) void {
+        for (self.grid orelse return, 0..) |_, i| {
+            allocator.free(self.grid.?[i]);
+        }
+        allocator.free(self.grid.?);
+        self.grid = null;
     }
 
     pub fn draw_2D_grid(center: rl.Vector3, width: f32, length: f32, spacing: f32, arrows: bool) void {
@@ -150,7 +169,20 @@ pub const Level = struct {
         }
     }
 
-    pub const LevelID = enum { one, zero };
+    pub fn import_models(self: *Level, allocator: std.mem.Allocator) !void {
+        if (self.models == null) {
+            self.models = .init(allocator);
+        }
+
+        for (Block.enum_fields) |tag| {
+            if (tag == .empty) continue;
+            const path: []u8 = try tag.get_path(allocator);
+            defer allocator.free(path);
+            const model = try rl.loadModel(@ptrCast(path));
+            errdefer rl.unloadModel(model);
+            try self.models.?.put(tag, model);
+        }
+    }
 
     pub fn export_level(self: Level, allocator: std.mem.Allocator) !void {
         std.debug.print("Exporting Level tag:{s}\n", .{@tagName(self.id)});
@@ -158,13 +190,13 @@ pub const Level = struct {
         defer writer.deinit();
 
         var stringify = std.json.Stringify{ .options = .{}, .writer = &writer.writer };
-        stringify.write(self) catch |err| std.debug.print("error{any}\n", .{err});
+        stringify.write(self.toData()) catch |err| std.debug.print("error{any}\n", .{err});
 
         const json_data = try writer.toOwnedSlice();
         defer allocator.free(json_data);
 
         const lvl_name = @tagName(self.id); // return type : [:0] const u8;
-        const full_path = try std.mem.concat(allocator, u8, &[_][]const u8{ Path, lvl_name, json_suffix });
+        const full_path = try std.mem.concat(allocator, u8, &[_][]const u8{ LevelPath, lvl_name, json_suffix });
         defer allocator.free(full_path);
 
         const file = try std.fs.cwd().createFile(full_path, .{ .truncate = true });
@@ -174,28 +206,65 @@ pub const Level = struct {
         try file_writer.writeAll(json_data);
         try file_writer.flush();
     }
+
     pub fn import_level(id: LevelID, allocator: std.mem.Allocator) !Level {
         const lvl_name = @tagName(id); // return type : [:0] const u8;
-        const full_path = try std.mem.concat(allocator, u8, &[_][]const u8{ Path, lvl_name, json_suffix });
+        const full_path = try std.mem.concat(allocator, u8, &[_][]const u8{ LevelPath, lvl_name, json_suffix });
         defer allocator.free(full_path);
         const json_data = try std.fs.cwd().readFileAlloc(allocator, full_path, MaxBytesRead);
         defer allocator.free(json_data);
-        const parsed = try std.json.parseFromSlice(Level, allocator, json_data, .{});
+        const parsed = try std.json.parseFromSlice(LevelData, allocator, json_data, .{});
         defer parsed.deinit();
-        var lvl: Level = parsed.value;
+        const lvlData: LevelData = parsed.value;
+        var lvl = Level.fromData(lvlData);
 
-        const grid = try allocator.alloc([]Block, lvl.grid.len);
-        errdefer lvl.deinit_grid(allocator);
+        {
+            const grid = try allocator.alloc([]Block, lvl.grid.?.len);
+            errdefer lvl.deinit_grid(allocator);
 
-        for (lvl.grid, 0..) |old_row, i| {
-            const row = try allocator.alloc(Block, old_row.len);
-            grid[i] = row;
-            for (old_row, 0..) |block, j| {
-                row[j] = block;
+            for (lvl.grid.?, 0..) |old_row, i| {
+                const row = try allocator.alloc(Block, old_row.len);
+                grid[i] = row;
+                for (old_row, 0..) |block, j| {
+                    row[j] = block;
+                }
             }
+            lvl.grid = grid;
         }
-        lvl.grid = grid;
-        lvl.grid_initted = true;
+
+        try lvl.import_models(allocator);
         return lvl;
+    }
+    pub const LevelID = enum { one, zero };
+    const LevelData = struct {
+        width: u8,
+        length: u8,
+        id: LevelID,
+        starting_point: Vec2,
+        finish: Vec2,
+        grid: [][]Block,
+    };
+
+    fn toData(level: Level) LevelData {
+        return .{
+            .width = level.width,
+            .length = level.length,
+            .id = level.id,
+            .starting_point = level.starting_point,
+            .finish = level.finish,
+            .grid = level.grid.?,
+        };
+    }
+    pub fn fromData(data: LevelData) Level {
+        const level = Level{
+            .width = data.width,
+            .length = data.length,
+            .id = data.id,
+            .starting_point = data.starting_point,
+            .finish = data.finish,
+            .grid = data.grid,
+            .models = null,
+        };
+        return level;
     }
 };

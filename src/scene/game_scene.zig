@@ -9,7 +9,7 @@ const Block = @import("../core/block.zig").Block;
 const Level = @import("../core/level.zig").Level;
 const Keybinds = @import("keybinds.zig");
 const overlay = @import("ingame_overlay.zig");
-const Blender_Unit_2_Raylib_Unit = 0.50;
+const Blender_Unit_2_Raylib_Unit = Block.Blender_Unit_2_Raylib_Unit;
 const Blender_Unit_2_Raylib_Unit_Vec: rl.Vector3 = .{ .x = Blender_Unit_2_Raylib_Unit, .y = Blender_Unit_2_Raylib_Unit, .z = Blender_Unit_2_Raylib_Unit };
 
 // Zum Szenenwechsel:
@@ -102,7 +102,7 @@ pub const GameScene = struct {
 
     pub fn onCleanup(self: *GameScene, context: *SceneContext) anyerror!void {
         std.log.info("Game Scene Cleaning up...", .{});
-        self.level.deinit_grid(context.allocator);
+        self.level.deinit(context.allocator);
         try self.player.deinit();
         self.keylist.deinit();
     }
@@ -143,8 +143,9 @@ pub const GameScene = struct {
 
     fn check_falling(lvl: Level, player: Player) bool {
         var stable = true;
+        if (lvl.grid == null) return false;
         for (player.grid_position.items) |pos| {
-            if (lvl.grid[pos.x][pos.y].id != .empty) {
+            if (lvl.grid.?[pos.x][pos.y].id != .empty) {
                 stable = true;
                 return false;
             }
