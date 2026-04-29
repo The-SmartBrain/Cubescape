@@ -102,6 +102,16 @@ pub const Player = struct {
         rl.unloadModel(c.model);
     }
 
+    pub fn use_effect(self: *Player) !void {
+        if (self.sides[0].used) return;
+        defer self.sides[0].used = true;
+        switch (self.sides[0].id) {
+            else => {
+                std.debug.print("used effect {s}\n", .{@tagName(self.sides[0].id)});
+            },
+        }
+    }
+
     pub fn animate(self: *Player, dt: f32) !void {
         const mask_val: i32 = @intFromBool(self.hidden);
         rl.setShaderValue(self.maskShader, self.useMaskLoc, &mask_val, rl.ShaderUniformDataType.int);
@@ -289,6 +299,7 @@ pub const Player = struct {
             self.calculate_occupied_cells(data.lvl_len, data.lvl_width) catch |err| {
                 if (err == PlayerError.OutOfBounds) _ = self.roll(data.dir.inv(), data.lvl_width, data.lvl_len);
             };
+            self.use_effect() catch |err| @panic(err);
             return;
         }
         self.model.transform = self.model.transform.multiply(matrix);
@@ -357,38 +368,41 @@ pub const Player = struct {
         var new_sides: [6]Side = undefined;
         switch (dir) {
             .north => {
-                new_sides[1] = self.sides[0];
-                new_sides[5] = self.sides[1];
+                new_sides[0] = self.sides[1];
+                new_sides[1] = self.sides[5];
                 new_sides[2] = self.sides[2];
-                new_sides[0] = self.sides[3];
+                new_sides[3] = self.sides[0];
                 new_sides[4] = self.sides[4];
-                new_sides[3] = self.sides[5];
+                new_sides[5] = self.sides[3];
             },
             .south => {
-                new_sides[3] = self.sides[0];
-                new_sides[0] = self.sides[1];
+                new_sides[0] = self.sides[3];
+                new_sides[1] = self.sides[0];
                 new_sides[2] = self.sides[2];
-                new_sides[5] = self.sides[3];
+                new_sides[3] = self.sides[5];
                 new_sides[4] = self.sides[4];
-                new_sides[1] = self.sides[5];
+                new_sides[5] = self.sides[1];
             },
             .east => {
-                new_sides[2] = self.sides[0];
+                new_sides[0] = self.sides[2];
                 new_sides[1] = self.sides[1];
-                new_sides[5] = self.sides[2];
+                new_sides[2] = self.sides[5];
                 new_sides[3] = self.sides[3];
-                new_sides[0] = self.sides[4];
-                new_sides[4] = self.sides[5];
+                new_sides[4] = self.sides[0];
+                new_sides[5] = self.sides[4];
             },
             .west => {
-                new_sides[4] = self.sides[0];
+                new_sides[0] = self.sides[4];
                 new_sides[1] = self.sides[1];
-                new_sides[0] = self.sides[2];
+                new_sides[2] = self.sides[0];
                 new_sides[3] = self.sides[3];
-                new_sides[5] = self.sides[4];
-                new_sides[2] = self.sides[5];
+                new_sides[4] = self.sides[5];
+                new_sides[5] = self.sides[2];
             },
         }
+        for (&new_sides) |*side|
+            side.used = false;
+
         self.current_animation = .{ .Rolling = .{ .st_model = self.model, .starting_origin = self.origin, .rotation = self.rotation, .old_edges = self.edges, .dir = dir, .lvl_len = lvl_l, .lvl_width = lvl_w } };
         self.edges = new_edges;
         self.sides = new_sides;
@@ -439,6 +453,7 @@ pub const Player = struct {
 
     pub const Side = struct {
         id: SideID = .none,
+        used: bool = false,
         pub const SideID = enum {
             none,
             dash,
