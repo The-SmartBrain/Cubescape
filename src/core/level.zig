@@ -47,7 +47,15 @@ pub const Level = struct {
 
         var spawn = self.idx_to_coord(self.starting_point.x, self.starting_point.y);
         spawn.y = 0;
-        rl.drawCube(spawn, 0.5, 0.1, 0.5, .gold);
+        if (self.models != null) {
+            const model = self.models.?.get(.spawn_point) orelse {
+                rl.drawCube(spawn, 1, 0.1, 1, .red);
+                return;
+            };
+            rl.drawModel(model, spawn, Blender_Unit_2_Raylib_Unit, .white);
+        } else {
+            rl.drawCube(spawn, 1, 0.1, 1, .red);
+        }
     }
 
     pub fn init(id: LevelID, length: u8, width: u8, alloator: std.mem.Allocator) !Level {

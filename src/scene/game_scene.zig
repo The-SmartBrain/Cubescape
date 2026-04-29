@@ -84,17 +84,8 @@ pub const GameScene = struct {
             rl.drawModel(player.model, player.origin, Blender_Unit_2_Raylib_Unit, .white);
         }
 
-        rl.drawText(rl.textFormat("Aktuelle Unterseite: 0. %f 1. %f 4. %f 5. %f", .{ player.edges[0], player.edges[1], player.edges[4], player.edges[5] }), 10, 40, 20, .red);
-        rl.drawText(rl.textFormat("Aktuelle Drehung: %f %f %f ", .{
-            player.rotation.x,
-            player.rotation.y,
-            player.rotation.z,
-        }), 10, 60, 20, .red);
-        rl.drawText(rl.textFormat("Aktuelle position: x:%f y:%f z:%f ", .{
-            player.origin.x,
-            player.origin.y,
-            player.origin.z,
-        }), 10, 80, 20, .red);
+        const slice: [:0]const u8 = @tagName(self.player.sides[0].id);
+        rl.drawText(rl.textFormat("Aktuelle Unterseite: 0. %f 1. %f ID: %s", .{ player.edges[0], player.edges[1], slice.ptr }), 10, 40, 20, .red);
 
         // Overlay als letztes
         overlay.draw(self);

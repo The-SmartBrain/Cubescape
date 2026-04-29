@@ -60,14 +60,19 @@ pub const Player = struct {
     pub fn init(allocator: std.mem.Allocator) !Player {
         var player: Player = undefined;
         player.allocator = allocator;
-        player.origin = .{ .x = 0, .y = 1, .z = 0 };
+        player.origin = .{ .x = 0.5, .y = 1, .z = 0.5 };
         player.rotation = .{ .x = 0, .z = 0, .y = 0 };
         player.current_animation = .None;
         player.model = try rl.loadModel(PlayerModelPath);
+        player.sides = [_]Side{ Side{}, .{ .id = Side.SideID.dash }, .{}, .{}, .{}, .{} };
+
         player.hidden = false;
         player.last_roll = .north;
 
         player.normal_edges = [12]f32{ 1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 1 };
+        // Working sizes: 1x1x1,1x2x1, 1x3x1,
+        // Broken sizes: 2x2x2,3x3x3,2x1x2, These require an offset(0.5|0|0.5) frrom the grid. Easy to implement
+
         player.edges = player.normal_edges;
         player.grid_position = try .initCapacity(allocator, 2);
         try player.grid_position.append(allocator, .{ .x = 0, .y = 0 });
@@ -141,6 +146,7 @@ pub const Player = struct {
 
         const st_rotation = data.rotation;
         var matrix: rl.Matrix = .identity();
+        var anim_done: bool = false;
         switch (data.dir) {
             .north => {
                 self.rotation.z = add_wrap(self.rotation.z, Rotation_Delta_Deg);
@@ -174,11 +180,7 @@ pub const Player = struct {
                     self.model.transform = data.st_model.transform.multiply(matrix);
                     self.rotation.z = add_wrap(st_rotation.z, 90);
 
-                    self.current_animation = .{ .None = .{} };
-                    self.calculate_occupied_cells(data.lvl_len, data.lvl_width) catch |err| {
-                        if (err == PlayerError.OutOfBounds) _ = self.roll(.south, data.lvl_width, data.lvl_len);
-                    };
-                    return;
+                    anim_done = true;
                 }
             },
             .south => {
@@ -209,11 +211,7 @@ pub const Player = struct {
                     self.origin.y = data.starting_origin.y + dy;
                     self.model.transform = data.st_model.transform.multiply(.rotateZ(deg2rad(-90)));
                     self.rotation.z = add_wrap(st_rotation.z, -90);
-                    self.current_animation = .{ .None = .{} };
-                    self.calculate_occupied_cells(data.lvl_len, data.lvl_width) catch |err| {
-                        if (err == PlayerError.OutOfBounds) _ = self.roll(.north, data.lvl_width, data.lvl_len);
-                    };
-                    return;
+                    anim_done = true;
                 }
             },
             .east => {
@@ -247,11 +245,7 @@ pub const Player = struct {
                     self.origin.z = data.starting_origin.z + dz;
                     self.origin.y = data.starting_origin.y + dy;
 
-                    self.current_animation = .{ .None = .{} };
-                    self.calculate_occupied_cells(data.lvl_len, data.lvl_width) catch |err| {
-                        if (err == PlayerError.OutOfBounds) _ = self.roll(.west, data.lvl_width, data.lvl_len);
-                    };
-                    return;
+                    anim_done = true;
                 }
             },
             .west => {
@@ -285,15 +279,18 @@ pub const Player = struct {
                     self.origin.z = data.starting_origin.z + dz;
                     self.origin.y = data.starting_origin.y + dy;
 
-                    self.current_animation = .{ .None = .{} };
-                    self.calculate_occupied_cells(data.lvl_len, data.lvl_width) catch |err| {
-                        if (err == PlayerError.OutOfBounds) _ = self.roll(.east, data.lvl_width, data.lvl_len);
-                    };
-                    return;
+                    anim_done = true;
                 }
             },
         }
 
+        if (anim_done) {
+            self.current_animation = .{ .None = .{} };
+            self.calculate_occupied_cells(data.lvl_len, data.lvl_width) catch |err| {
+                if (err == PlayerError.OutOfBounds) _ = self.roll(data.dir.inv(), data.lvl_width, data.lvl_len);
+            };
+            return;
+        }
         self.model.transform = self.model.transform.multiply(matrix);
     }
     pub fn roll(self: *Player, dir: Direction, lvl_w: u8, lvl_l: u8) bool {
@@ -357,8 +354,44 @@ pub const Player = struct {
                 new_edges[9] = self.edges[11];
             },
         }
+        var new_sides: [6]Side = undefined;
+        switch (dir) {
+            .north => {
+                new_sides[1] = self.sides[0];
+                new_sides[5] = self.sides[1];
+                new_sides[2] = self.sides[2];
+                new_sides[0] = self.sides[3];
+                new_sides[4] = self.sides[4];
+                new_sides[3] = self.sides[5];
+            },
+            .south => {
+                new_sides[3] = self.sides[0];
+                new_sides[0] = self.sides[1];
+                new_sides[2] = self.sides[2];
+                new_sides[5] = self.sides[3];
+                new_sides[4] = self.sides[4];
+                new_sides[1] = self.sides[5];
+            },
+            .east => {
+                new_sides[2] = self.sides[0];
+                new_sides[1] = self.sides[1];
+                new_sides[5] = self.sides[2];
+                new_sides[3] = self.sides[3];
+                new_sides[0] = self.sides[4];
+                new_sides[4] = self.sides[5];
+            },
+            .west => {
+                new_sides[4] = self.sides[0];
+                new_sides[1] = self.sides[1];
+                new_sides[0] = self.sides[2];
+                new_sides[3] = self.sides[3];
+                new_sides[5] = self.sides[4];
+                new_sides[2] = self.sides[5];
+            },
+        }
         self.current_animation = .{ .Rolling = .{ .st_model = self.model, .starting_origin = self.origin, .rotation = self.rotation, .old_edges = self.edges, .dir = dir, .lvl_len = lvl_l, .lvl_width = lvl_w } };
         self.edges = new_edges;
+        self.sides = new_sides;
         self.last_roll = dir;
         return true;
     }
@@ -404,10 +437,32 @@ pub const Player = struct {
         return .{ .x = @intFromFloat(i), .y = @intFromFloat(j) };
     }
 
-    pub const Side = struct {};
+    pub const Side = struct {
+        id: SideID = .none,
+        pub const SideID = enum {
+            none,
+            dash,
+            portal,
+            armor,
+        };
+    };
 };
 
-pub const Direction = enum { north, south, east, west };
+pub const Direction = enum {
+    north,
+    south,
+    east,
+    west,
+
+    pub fn inv(dir: Direction) Direction {
+        switch (dir) {
+            .north => return Direction.south,
+            .south => return Direction.north,
+            .east => return Direction.west,
+            .west => return Direction.east,
+        }
+    }
+};
 
 pub fn add_wrap(a: f32, b: f32) f32 {
     return @mod((a + b), 360);
