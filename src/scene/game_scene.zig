@@ -61,13 +61,19 @@ pub const GameScene = struct {
 
         if (try self.getInput(context)) return;
 
+        try player.use_effect();
+
         player.animate(delta_time) catch |err| {
             std.log.err("failed to animate player {}\n", .{err});
         };
 
+        try player.recalc_position(&self.level);
+
         if (check_falling(self.level, player.*)) {
-            player.fall(&self.level, player.last_roll);
+            player.fall(player.last_roll);
         }
+
+        if (player.reset) try player.reset_player(&self.level);
 
         self.camera.update(player.origin);
 
@@ -86,6 +92,8 @@ pub const GameScene = struct {
 
         const slice: [:0]const u8 = @tagName(self.player.sides[0].id);
         rl.drawText(rl.textFormat("Aktuelle Unterseite: 0. %f 1. %f ID: %s", .{ player.edges[0], player.edges[1], slice.ptr }), 10, 40, 20, .red);
+        const slice_anim: [:0]const u8 = @tagName(self.player.current_animation);
+        rl.drawText(rl.textFormat("Aktuelle Animation:  %s", .{slice_anim.ptr}), 10, 60, 20, .red);
 
         // Overlay als letztes
         overlay.draw(self);
