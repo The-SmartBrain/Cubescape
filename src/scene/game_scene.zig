@@ -61,8 +61,6 @@ pub const GameScene = struct {
 
         if (try self.getInput(context)) return;
 
-        try player.use_effect();
-
         player.animate(delta_time) catch |err| {
             std.log.err("failed to animate player {}\n", .{err});
         };
@@ -74,6 +72,8 @@ pub const GameScene = struct {
         }
 
         if (player.reset) try player.reset_player(&self.level);
+
+        try player.use_effect();
 
         self.camera.update(player.origin);
 

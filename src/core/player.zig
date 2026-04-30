@@ -124,7 +124,6 @@ pub const Player = struct {
         if (self.sides[0].used) return;
         switch (self.sides[0].id) {
             .dash => {
-                std.log.debug("used  effect {s}\n", .{@tagName(self.sides[0].id)});
                 self.dash(self.last_roll) catch |err| if (err == PlayerError.AnimationNotNone) return;
             },
             else => {
@@ -148,6 +147,9 @@ pub const Player = struct {
         var t = data.anim_time / FallDuration_s;
         if (t > 1.0) t = 0.0;
         const eased = ease_out_quint(t);
+        //        const eased = easi_in_out_expo(t);
+        //        const eased = ease_in_cubic(t);
+        //        const eased = ease_in_out_quad(t);
 
         switch (data.dir) {
             .north => vector.x = -1.0,
@@ -567,6 +569,12 @@ inline fn ease_in_cubic(x: f32) f32 {
     return x * x * x;
 }
 
+inline fn ease_in_out_quad(x: f32) f32 {
+    return if (x < 0.5)
+        2.0 * x * x
+    else
+        1.0 - std.math.pow(f32, -2.0 * x + 2.0, 2.0) / 2.0;
+}
 inline fn easi_in_out_expo(x: f32) f32 {
     return if (x == 0.0) 0.0 else if (x == 1.0) 1.0 else if (x < 0.5) std.math.pow(f32, 2.0, 20.0 * x - 10.0) / 2.0 else (2.0 - std.math.pow(f32, 2.0, -20.0 * x + 10.0)) / 2.0;
 }
