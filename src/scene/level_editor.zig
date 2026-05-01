@@ -96,12 +96,12 @@ pub const EditorScene = struct {
 
         if (k.check(.toolbar_one, .isPressed)) {
             try self.level.export_level(self.allocator);
-            self.level.deinit_grid(self.allocator);
+            self.level.deinit(self.allocator);
             self.level = try Level.import_level(.one, self.allocator);
         }
         if (k.check(.toolbar_zero, .isPressed)) {
             try self.level.export_level(self.allocator);
-            self.level.deinit_grid(self.allocator);
+            self.level.deinit(self.allocator);
             self.level = try Level.import_level(.zero, self.allocator);
         }
 
@@ -116,7 +116,7 @@ pub const EditorScene = struct {
         if (k.check(.toolbar_four, .isPressed))
             self.current_block_id = .green;
         if (k.check(.toolbar_five, .isPressed))
-            self.current_block_id = .blue;
+            self.current_block_id = .wall;
         if (k.check(.toolbar_six, .isPressed))
             self.current_block_id = .spawn_point;
 

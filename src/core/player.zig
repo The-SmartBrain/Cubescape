@@ -11,6 +11,20 @@ const PlayerTexturePath = "assets/player_texture.png";
 const MaskShaderPath = "assets/shaders/mask.fs";
 const MaskTexturePath = "assets/mask.png";
 
+const edge_table = std.EnumArray(Direction, [12]u4).init(.{
+    .north = .{ 2, 6, 10, 7, 3, 1, 9, 11, 0, 5, 8, 4 },
+    .south = .{ 8, 5, 0, 4, 11, 9, 1, 3, 10, 6, 2, 7 },
+    .east = .{ 4, 3, 7, 11, 8, 0, 2, 10, 5, 1, 6, 9 },
+    .west = .{ 5, 9, 6, 1, 0, 8, 10, 2, 4, 11, 7, 3 },
+});
+
+const side_table = std.EnumArray(Direction, [6]u3).init(.{
+    .north = .{ 1, 5, 2, 0, 4, 3 },
+    .south = .{ 3, 0, 2, 5, 4, 1 },
+    .east = .{ 2, 1, 5, 3, 0, 4 },
+    .west = .{ 4, 1, 0, 3, 5, 2 },
+});
+
 pub const Vec2 = struct {
     x: usize,
     y: usize,
@@ -29,8 +43,6 @@ pub const Player = struct {
             rotation: rl.Vector3,
             old_edges: [12]f32,
             dir: Direction,
-            lvl_len: u8,
-            lvl_width: u8,
             // zig fmt: on
         };
         pub const FallingData = struct { st_transform: rl.Matrix, fall_time: f32, dir: Direction };
@@ -66,6 +78,7 @@ pub const Player = struct {
     hidden: bool,
     last_roll: Direction,
     recalc_pos: bool,
+    lvl_ptr: *Level,
 
     pub fn init(allocator: std.mem.Allocator) !Player {
         var player: Player = undefined;
@@ -74,12 +87,13 @@ pub const Player = struct {
         player.rotation = .{ .x = 0, .z = 0, .y = 0 };
         player.current_animation = .None;
         player.model = try rl.loadModel(PlayerModelPath);
-        player.normal_side = [6]Side{ Side{}, .{ .id = Side.SideID.dash }, .{}, .{}, .{}, .{} };
+        player.normal_side = [6]Side{ Side{}, .{ .id = Side.SideID.armor }, .{}, .{}, .{}, .{} };
         player.sides = player.normal_side;
         player.hidden = false;
         player.last_roll = .north;
         player.recalc_pos = true;
         player.reset = false;
+        player.lvl_ptr = undefined;
 
         player.normal_edges = [12]f32{ 1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 1 };
         // Working sizes: 1x1x1,1x2x1, 1x3x1,
@@ -106,10 +120,10 @@ pub const Player = struct {
         return player;
     }
 
-    pub fn recalc_position(self: *Player, lvl_ptr: *Level) !void {
+    pub fn recalc_position(self: *Player) !void {
         if (!self.recalc_pos) return;
         defer self.recalc_pos = false;
-        try self.calculate_occupied_cells(lvl_ptr.length, lvl_ptr.width);
+        try self.calculate_occupied_cells();
     }
 
     pub fn deinit(c: *Player) !void {
@@ -118,6 +132,17 @@ pub const Player = struct {
         rl.unloadTexture(c.maskTexture);
         rl.unloadShader(c.maskShader);
         rl.unloadModel(c.model);
+    }
+    pub fn check_falling(self: *Player) bool {
+        var stable = true;
+        if (self.lvl_ptr.grid == null) return false;
+        for (self.grid_position.items) |pos| {
+            if (self.lvl_ptr.grid.?[pos.x][pos.y].id != .empty) {
+                stable = true;
+                return false;
+            }
+        }
+        return stable;
     }
 
     pub fn use_effect(self: *Player) !void {
@@ -174,7 +199,7 @@ pub const Player = struct {
         rl.setShaderValue(self.maskShader, self.useMaskLoc, &mask_val, rl.ShaderUniformDataType.int);
 
         switch (self.current_animation) {
-            .Rolling => |data| try self.animate_rotation(data, dt),
+            .Rolling => |data| try self.animate_roll(data, dt),
             .Falling => |*data| try self.animate_fall(data, dt),
             .Dashing => |*data| try self.animate_dash(data, dt),
             .None => return,
@@ -203,7 +228,7 @@ pub const Player = struct {
             self.current_animation = .{ .None = .{} };
         }
     }
-    pub fn reset_player(self: *Player, lvl_ptr: *Level) !void {
+    pub fn reset_player(self: *Player) !void {
         if (!self.reset) return;
         self.reset = false;
 
@@ -212,14 +237,14 @@ pub const Player = struct {
         self.model.transform = .identity();
         self.rotation = .zero();
         for (&self.sides) |*side| side.used = false;
-        self.origin = lvl_ptr.idx_to_coord(lvl_ptr.starting_point.x, lvl_ptr.starting_point.y);
+        self.origin = self.lvl_ptr.idx_to_coord(self.lvl_ptr.starting_point.x, self.lvl_ptr.starting_point.y);
         self.origin.y = self.edges[5] / 2;
         self.current_animation = .{ .None = .{} };
         self.recalc_pos = true;
-        try self.recalc_position(lvl_ptr);
+        try self.recalc_position();
     }
 
-    fn animate_rotation(self: *Player, data: Animation.RollingData, dt: f32) !void {
+    fn animate_roll(self: *Player, data: Animation.RollingData, dt: f32) !void {
         const Rotation_Delta_Deg = 340 * dt; // sweetspot;
 
         const st_rotation = data.rotation;
@@ -370,110 +395,98 @@ pub const Player = struct {
         }
         self.model.transform = self.model.transform.multiply(matrix);
     }
-    pub fn roll(self: *Player, dir: Direction, lvl_w: u8, lvl_l: u8) bool {
+    pub fn roll(self: *Player, dir: Direction) bool {
         if (self.current_animation != .None) return false;
+        const old_edges = self.edges;
+        const old_origin = self.origin;
+
+        const et = edge_table.get(dir);
         var new_edges: [12]f32 = undefined;
-        switch (dir) {
-            .north => {
-                new_edges[8] = self.edges[0];
-                new_edges[5] = self.edges[1];
-                new_edges[0] = self.edges[2];
-                new_edges[4] = self.edges[3];
-                new_edges[11] = self.edges[4];
-                new_edges[9] = self.edges[5];
-                new_edges[1] = self.edges[6];
-                new_edges[3] = self.edges[7];
-                new_edges[10] = self.edges[8];
-                new_edges[6] = self.edges[9];
-                new_edges[2] = self.edges[10];
-                new_edges[7] = self.edges[11];
-            },
-            .south => {
-                new_edges[2] = self.edges[0];
-                new_edges[6] = self.edges[1];
-                new_edges[10] = self.edges[2];
-                new_edges[7] = self.edges[3];
-                new_edges[3] = self.edges[4];
-                new_edges[1] = self.edges[5];
-                new_edges[9] = self.edges[6];
-                new_edges[11] = self.edges[7];
-                new_edges[0] = self.edges[8];
-                new_edges[5] = self.edges[9];
-                new_edges[8] = self.edges[10];
-                new_edges[4] = self.edges[11];
-            },
-            .east => {
-                new_edges[5] = self.edges[0];
-                new_edges[9] = self.edges[1];
-                new_edges[6] = self.edges[2];
-                new_edges[1] = self.edges[3];
-                new_edges[0] = self.edges[4];
-                new_edges[8] = self.edges[5];
-                new_edges[10] = self.edges[6];
-                new_edges[2] = self.edges[7];
-                new_edges[4] = self.edges[8];
-                new_edges[11] = self.edges[9];
-                new_edges[7] = self.edges[10];
-                new_edges[3] = self.edges[11];
-            },
-            .west => {
-                new_edges[4] = self.edges[0];
-                new_edges[3] = self.edges[1];
-                new_edges[7] = self.edges[2];
-                new_edges[11] = self.edges[3];
-                new_edges[8] = self.edges[4];
-                new_edges[0] = self.edges[5];
-                new_edges[2] = self.edges[6];
-                new_edges[10] = self.edges[7];
-                new_edges[5] = self.edges[8];
-                new_edges[1] = self.edges[9];
-                new_edges[6] = self.edges[10];
-                new_edges[9] = self.edges[11];
-            },
-        }
+        for (0..12) |i| new_edges[i] = self.edges[et[i]];
+
+        const st = side_table.get(dir);
         var new_sides: [6]Side = undefined;
-        switch (dir) {
-            .north => {
-                new_sides[0] = self.sides[1];
-                new_sides[1] = self.sides[5];
-                new_sides[2] = self.sides[2];
-                new_sides[3] = self.sides[0];
-                new_sides[4] = self.sides[4];
-                new_sides[5] = self.sides[3];
-            },
-            .south => {
-                new_sides[0] = self.sides[3];
-                new_sides[1] = self.sides[0];
-                new_sides[2] = self.sides[2];
-                new_sides[3] = self.sides[5];
-                new_sides[4] = self.sides[4];
-                new_sides[5] = self.sides[1];
-            },
-            .east => {
-                new_sides[0] = self.sides[2];
-                new_sides[1] = self.sides[1];
-                new_sides[2] = self.sides[5];
-                new_sides[3] = self.sides[3];
-                new_sides[4] = self.sides[0];
-                new_sides[5] = self.sides[4];
-            },
-            .west => {
-                new_sides[0] = self.sides[4];
-                new_sides[1] = self.sides[1];
-                new_sides[2] = self.sides[0];
-                new_sides[3] = self.sides[3];
-                new_sides[4] = self.sides[5];
-                new_sides[5] = self.sides[2];
-            },
-        }
+        for (0..6) |i| new_sides[i] = self.sides[st[i]];
+
         for (&new_sides) |*side|
             side.used = false;
 
-        self.current_animation = .{ .Rolling = .{ .st_model = self.model, .starting_origin = self.origin, .rotation = self.rotation, .old_edges = self.edges, .dir = dir, .lvl_len = lvl_l, .lvl_width = lvl_w } };
         self.edges = new_edges;
+
+        {
+            self.calculate_final_roll_origin(dir);
+            calculate_occupied_cells(self) catch |err| if (err != PlayerError.OutOfBounds) @panic(@errorName(err));
+
+            for (self.grid_position.items) |tile| {
+                if (self.lvl_ptr.grid.?[tile.x][tile.y].id == .wall) {
+                    self.edges = old_edges;
+                    self.origin = old_origin;
+                    calculate_occupied_cells(self) catch |err| if (err != PlayerError.OutOfBounds) @panic(@errorName(err));
+                    return false;
+                }
+            }
+            self.origin = old_origin;
+            calculate_occupied_cells(self) catch |err| if (err != PlayerError.OutOfBounds) @panic(@errorName(err));
+        }
+
+        self.current_animation = .{ .Rolling = .{ .st_model = self.model, .starting_origin = old_origin, .rotation = self.rotation, .old_edges = old_edges, .dir = dir } };
         self.sides = new_sides;
         self.last_roll = dir;
         return true;
+    }
+
+    // use carefully; can NOT be used for animate_roll
+    fn calculate_final_roll_origin(self: *Player, dir: Direction) void {
+        switch (dir) {
+            .north => {
+                const b = self.edges[4] / 2;
+                const a = -self.edges[1] / 2;
+                const c = deg2rad(-90);
+                const radius = @sqrt(b * b + a * a);
+                const theta = std.math.atan2(b, a);
+                const dx = radius * @cos(theta + c) - a;
+                const dy = radius * @sin(theta + c) - b;
+
+                self.origin.x -= dx;
+                self.origin.y += dy;
+            },
+            .south => {
+                const b = self.edges[4] / 2;
+                const a = self.edges[1] / 2;
+                const c = deg2rad(90);
+                const radius = @sqrt(b * b + a * a);
+                const theta = std.math.atan2(b, a);
+                const dx = radius * @cos(theta + c) - a;
+                const dy = radius * @sin(theta + c) - b;
+
+                self.origin.x -= dx;
+                self.origin.y += dy;
+            },
+            .east => {
+                const b = self.edges[5] / 2;
+                const a = self.edges[0] / 2;
+                const c = deg2rad(90);
+                const radius = @sqrt(b * b + a * a);
+                const theta = std.math.atan2(b, a);
+                const dx = radius * @cos(theta + c) - a;
+                const dy = radius * @sin(theta + c) - b;
+
+                self.origin.z += dx;
+                self.origin.y += dy;
+            },
+            .west => {
+                const b = self.edges[5] / 2;
+                const a = -self.edges[0] / 2;
+                const c = deg2rad(-90);
+                const radius = @sqrt(b * b + a * a);
+                const theta = std.math.atan2(b, a);
+                const dx = radius * @cos(theta + c) - a;
+                const dy = radius * @sin(theta + c) - b;
+
+                self.origin.z += dx;
+                self.origin.y += dy;
+            },
+        }
     }
 
     pub fn fall(self: *Player, dir: Direction) void {
@@ -481,7 +494,7 @@ pub const Player = struct {
         self.current_animation = .{ .Falling = .{ .fall_time = 0, .dir = dir, .st_transform = self.model.transform } };
     }
 
-    pub fn calculate_occupied_cells(self: *Player, lvl_l: u8, lvl_w: u8) !void {
+    pub fn calculate_occupied_cells(self: *Player) !void {
         self.grid_position.clearRetainingCapacity();
         const a: f32 = self.edges[1]; // guaranteed to be whole numbers
         const b: f32 = self.edges[0]; // guaranteed to be whole numbers
@@ -494,7 +507,7 @@ pub const Player = struct {
             const z_round: i32 = @intFromFloat(@round(z)); // @round is REQUIRED, @floor or @trunc will result in wrong coordinate calc
             while (x <= lr_corner.x) {
                 const x_round: i32 = @intFromFloat(@round(x));
-                const v2 = index_from_2d(x_round, z_round, lvl_l, lvl_w) orelse return PlayerError.OutOfBounds;
+                const v2 = index_from_2d(x_round, z_round, self.lvl_ptr.length, self.lvl_ptr.width) orelse return PlayerError.OutOfBounds;
                 try self.grid_position.append(self.allocator, v2);
                 x += 1.0;
             }

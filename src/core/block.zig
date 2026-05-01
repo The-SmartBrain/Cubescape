@@ -11,6 +11,7 @@ pub const Block = struct {
         green,
         blue,
         red,
+        wall,
         spawn_point,
         pub fn get_path(self: BlockID, allocator: std.mem.Allocator) ![]u8 {
             const name = @tagName(self);
@@ -26,5 +27,6 @@ pub const Block = struct {
         .blue,
         .red,
         .spawn_point,
+        .wall,
     };
 };

@@ -46,8 +46,9 @@ pub const GameScene = struct {
 
         self.player.origin = self.level.idx_to_coord(self.level.starting_point.x, self.level.starting_point.y);
         self.player.origin.y = self.player.edges[5] / 2;
+        self.player.lvl_ptr = &self.level;
 
-        try self.player.calculate_occupied_cells(self.level.length, self.level.width);
+        try self.player.calculate_occupied_cells();
 
         self.camera.update(self.player.origin);
 
@@ -65,13 +66,13 @@ pub const GameScene = struct {
             std.log.err("failed to animate player {}\n", .{err});
         };
 
-        try player.recalc_position(&self.level);
+        try player.recalc_position();
 
-        if (check_falling(self.level, player.*)) {
+        if (player.check_falling()) {
             player.fall(player.last_roll);
         }
 
-        if (player.reset) try player.reset_player(&self.level);
+        if (player.reset) try player.reset_player();
 
         try player.use_effect();
 
@@ -112,16 +113,16 @@ pub const GameScene = struct {
             return true;
         }
         if (self.keylist.check(.roll_north, .isDown)) {
-            if (self.player.roll(.north, self.level.width, self.level.length)) self.current_moves += 1;
+            if (self.player.roll(.north)) self.current_moves += 1;
         }
         if (self.keylist.check(.roll_south, .isDown)) {
-            if (self.player.roll(.south, self.level.width, self.level.length)) self.current_moves += 1;
+            if (self.player.roll(.south)) self.current_moves += 1;
         }
         if (self.keylist.check(.roll_west, .isDown)) {
-            if (self.player.roll(.west, self.level.width, self.level.length)) self.current_moves += 1;
+            if (self.player.roll(.west)) self.current_moves += 1;
         }
         if (self.keylist.check(.roll_east, .isDown)) {
-            if (self.player.roll(.east, self.level.width, self.level.length)) self.current_moves += 1;
+            if (self.player.roll(.east)) self.current_moves += 1;
         }
         if (self.keylist.check(.hide_player, .isDown)) {
             self.player.hidden = true;
@@ -138,17 +139,5 @@ pub const GameScene = struct {
             self.camera.update(self.player.origin);
         }
         return false;
-    }
-
-    fn check_falling(lvl: Level, player: Player) bool {
-        var stable = true;
-        if (lvl.grid == null) return false;
-        for (player.grid_position.items) |pos| {
-            if (lvl.grid.?[pos.x][pos.y].id != .empty) {
-                stable = true;
-                return false;
-            }
-        }
-        return stable;
     }
 };

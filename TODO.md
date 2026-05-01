@@ -1,31 +1,22 @@
 # Cubescape
 
-
-
 ## Allgemein
+
 - Keybind Menue  
-
-
 
 ### Bugs
 
-
-
-
 ## Vergriffen
+
 ### Marius
+
 - Engine
-    - Level-Editor
-
-
-
+  - Level-Editor
 
 ### Freddi
+
 - Menü
 - Gameoverlay
 - Pausemenü
 
-
-
 ## Fixed Bugs
-
