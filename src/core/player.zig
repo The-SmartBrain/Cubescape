@@ -69,7 +69,6 @@ pub const Player = struct {
     maskTexture: rl.Texture,
     maskShader: rl.Shader,
     useMaskLoc: i32,
-    reset: bool,
 
     origin: rl.Vector3,
     rotation: rl.Vector3,
@@ -77,7 +76,6 @@ pub const Player = struct {
     current_animation: Animation,
     hidden: bool,
     last_roll: Direction,
-    recalc_pos: bool,
     lvl_ptr: *Level,
 
     pub fn init(allocator: std.mem.Allocator) !Player {
@@ -87,12 +85,10 @@ pub const Player = struct {
         player.rotation = .{ .x = 0, .z = 0, .y = 0 };
         player.current_animation = .None;
         player.model = try rl.loadModel(PlayerModelPath);
-        player.normal_side = [6]Side{ Side{}, .{ .id = Side.SideID.armor }, .{}, .{}, .{}, .{} };
+        player.normal_side = [6]Side{ Side{}, .{ .id = Side.SideID.dash }, .{}, .{}, .{}, .{} };
         player.sides = player.normal_side;
         player.hidden = false;
         player.last_roll = .north;
-        player.recalc_pos = true;
-        player.reset = false;
         player.lvl_ptr = undefined;
 
         player.normal_edges = [12]f32{ 1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 1 };
@@ -118,12 +114,6 @@ pub const Player = struct {
             player.model.materials[0].shader = player.maskShader;
         }
         return player;
-    }
-
-    pub fn recalc_position(self: *Player) !void {
-        if (!self.recalc_pos) return;
-        defer self.recalc_pos = false;
-        try self.calculate_occupied_cells();
     }
 
     pub fn deinit(c: *Player) !void {
@@ -160,11 +150,33 @@ pub const Player = struct {
 
     pub fn dash(self: *Player, dir: Direction) !void {
         if (self.current_animation != .None) return PlayerError.AnimationNotNone;
-        self.current_animation = .{ .Dashing = .{ .dir = dir, .st_pos = self.origin, .amount = 3.0 } };
-        std.debug.print("self.current_animation.{s}\n", .{@tagName(self.current_animation)});
+        const old_origin = self.origin;
+        const amount = 3.0;
+        {
+            var vector: rl.Vector3 = .zero();
+            switch (dir) {
+                .north => vector.x = -1.0,
+                .south => vector.x = 1.0,
+                .east => vector.z = -1.0,
+                .west => vector.z = 1.0,
+            }
+
+            self.origin = .add(self.origin, vector.scale(amount));
+            try self.calculate_occupied_cells();
+
+            for (self.grid_position.items) |tile| {
+                if (self.lvl_ptr.grid.?[tile.x][tile.y].id == .wall) {
+                    self.origin = old_origin;
+                    calculate_occupied_cells(self) catch |err| if (err != PlayerError.OutOfBounds) @panic(@errorName(err));
+                    return;
+                }
+            }
+            self.origin = old_origin;
+            calculate_occupied_cells(self) catch |err| if (err != PlayerError.OutOfBounds) @panic(@errorName(err));
+        }
+        self.current_animation = .{ .Dashing = .{ .dir = dir, .st_pos = old_origin, .amount = amount } };
     }
     pub fn animate_dash(self: *Player, data: *Animation.DashingData, dt: f32) !void {
-        std.debug.print("animating dash\n", .{});
         const speed: f32 = 10.0;
         var vector: rl.Vector3 = .zero();
 
@@ -189,7 +201,7 @@ pub const Player = struct {
         const travelled = self.origin.subtract(data.st_pos).length();
         if (travelled >= data.amount) {
             self.origin = data.st_pos.add(vector.scale(data.amount));
-            self.recalc_pos = true;
+            try self.calculate_occupied_cells();
             self.current_animation = .{ .None = .{} };
         }
     }
@@ -224,14 +236,11 @@ pub const Player = struct {
                 data.st_transform.multiply(rl.Matrix.rotateXYZ(rot_vector));
         }
         if (self.origin.y < FallLimit) {
-            self.reset = true;
+            try self.reset_player();
             self.current_animation = .{ .None = .{} };
         }
     }
     pub fn reset_player(self: *Player) !void {
-        if (!self.reset) return;
-        self.reset = false;
-
         self.edges = self.normal_edges;
         self.sides = self.normal_side;
         self.model.transform = .identity();
@@ -240,8 +249,7 @@ pub const Player = struct {
         self.origin = self.lvl_ptr.idx_to_coord(self.lvl_ptr.starting_point.x, self.lvl_ptr.starting_point.y);
         self.origin.y = self.edges[5] / 2;
         self.current_animation = .{ .None = .{} };
-        self.recalc_pos = true;
-        try self.recalc_position();
+        try self.calculate_occupied_cells();
     }
 
     fn animate_roll(self: *Player, data: Animation.RollingData, dt: f32) !void {
@@ -389,7 +397,7 @@ pub const Player = struct {
 
         if (anim_done) {
             self.current_animation = .{ .None = .{} };
-            self.recalc_pos = true;
+            try self.calculate_occupied_cells();
 
             return;
         }

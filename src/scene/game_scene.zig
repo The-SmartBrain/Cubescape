@@ -66,13 +66,9 @@ pub const GameScene = struct {
             std.log.err("failed to animate player {}\n", .{err});
         };
 
-        try player.recalc_position();
-
         if (player.check_falling()) {
             player.fall(player.last_roll);
         }
-
-        if (player.reset) try player.reset_player();
 
         try player.use_effect();
 
