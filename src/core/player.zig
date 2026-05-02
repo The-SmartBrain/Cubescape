@@ -151,29 +151,33 @@ pub const Player = struct {
     pub fn dash(self: *Player, dir: Direction) !void {
         if (self.current_animation != .None) return PlayerError.AnimationNotNone;
         const old_origin = self.origin;
-        const amount = 3.0;
-        {
-            var vector: rl.Vector3 = .zero();
-            switch (dir) {
-                .north => vector.x = -1.0,
-                .south => vector.x = 1.0,
-                .east => vector.z = -1.0,
-                .west => vector.z = 1.0,
-            }
+        var amount: f32 = 3.0;
 
-            self.origin = .add(self.origin, vector.scale(amount));
-            try self.calculate_occupied_cells();
+        var vector: rl.Vector3 = .zero();
+        switch (dir) {
+            .north => vector.x = -1.0,
+            .south => vector.x = 1.0,
+            .east => vector.z = -1.0,
+            .west => vector.z = 1.0,
+        }
+
+        var ray_amnt: f32 = 0.0;
+        defer self.origin = old_origin;
+
+        outer: while (ray_amnt <= amount) : (ray_amnt += 1) {
+            self.origin = .add(self.origin, vector);
+            self.calculate_occupied_cells() catch |err| if (err == PlayerError.OutOfBounds) break;
 
             for (self.grid_position.items) |tile| {
                 if (self.lvl_ptr.grid.?[tile.x][tile.y].id == .wall) {
-                    self.origin = old_origin;
-                    calculate_occupied_cells(self) catch |err| if (err != PlayerError.OutOfBounds) @panic(@errorName(err));
-                    return;
+                    amount = ray_amnt;
+                    break :outer;
                 }
             }
-            self.origin = old_origin;
-            calculate_occupied_cells(self) catch |err| if (err != PlayerError.OutOfBounds) @panic(@errorName(err));
         }
+
+        calculate_occupied_cells(self) catch |err| if (err != PlayerError.OutOfBounds) return err;
+
         self.current_animation = .{ .Dashing = .{ .dir = dir, .st_pos = old_origin, .amount = amount } };
     }
     pub fn animate_dash(self: *Player, data: *Animation.DashingData, dt: f32) !void {
@@ -201,8 +205,8 @@ pub const Player = struct {
         const travelled = self.origin.subtract(data.st_pos).length();
         if (travelled >= data.amount) {
             self.origin = data.st_pos.add(vector.scale(data.amount));
-            try self.calculate_occupied_cells();
             self.current_animation = .{ .None = .{} };
+            self.calculate_occupied_cells() catch |err| if (err != PlayerError.OutOfBounds) return else return err;
         }
     }
 
