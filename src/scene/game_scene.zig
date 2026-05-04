@@ -87,23 +87,24 @@ pub const GameScene = struct {
         try player.use_effect();
 
         self.camera.update(player.origin);
-        // zig fmt: off
-        rl.beginTextureMode(self.normalFBO);
-            rl.clearBackground(.black);
-            self.camera.begin();
-                self.draw_world_override_shader(self.normal_shader);
-            self.camera.end();
-        rl.endTextureMode();
-        // zig fmt: on
 
-        // zig fmt: off
-        rl.beginTextureMode(self.sceneFBO);
-            rl.clearBackground(.white);
-            self.camera.begin();
-                self.draw_world();
-            self.camera.end();
+        try self.handle_draw(render_texture);
+    }
+
+    fn handle_draw(self: *GameScene, render_texture: rl.RenderTexture) !void {
+        rl.beginTextureMode(self.normalFBO);
+        rl.clearBackground(.black);
+        self.camera.begin();
+        self.draw_world_override_shader(self.normal_shader);
+        self.camera.end();
         rl.endTextureMode();
-        // zig fmt: on
+
+        rl.beginTextureMode(self.sceneFBO);
+        rl.clearBackground(.white);
+        self.camera.begin();
+        self.draw_world();
+        self.camera.end();
+        rl.endTextureMode();
 
         const normalLoc = rl.getShaderLocation(self.outline_shader, "normalTexture");
         const colorLoc = rl.getShaderLocation(self.outline_shader, "colorTexture");
@@ -116,12 +117,16 @@ pub const GameScene = struct {
         rl.setShaderValue(self.outline_shader, texelSizeLoc, &texelSize, .vec2);
 
         const thresholdLoc = rl.getShaderLocation(self.outline_shader, "threshold");
-        var threshold: f32 = 0.1;
+        var threshold: f32 = 0.01;
         rl.setShaderValue(self.outline_shader, thresholdLoc, &threshold, .float);
 
         const outlineColorLoc = rl.getShaderLocation(self.outline_shader, "outlineColor");
-        const outlineColor = [4]f32{ 0.0, 0.0, 0.0, 1.0 };
+        const outlineColor = [4]f32{ 0.3, 0.5, 0.8, 1.0 };
         rl.setShaderValue(self.outline_shader, outlineColorLoc, &outlineColor, .vec4);
+
+        const maskLoc = rl.getShaderLocation(self.outline_shader, "useMask");
+        const mask: bool = self.player.hidden;
+        rl.setShaderValue(self.outline_shader, maskLoc, &mask, .int);
 
         rl.beginTextureMode(render_texture);
         rl.clearBackground(.black);
@@ -139,24 +144,14 @@ pub const GameScene = struct {
         rl.drawTextureRec(self.sceneFBO.texture, rl.Rectangle{ .x = 0, .y = 0, .width = GlobalState.DrawWidth, .height = -GlobalState.DrawHeight }, .zero(), .white);
 
         rl.endShaderMode();
-        rl.endTextureMode();
 
-        //        const slice: [:0]const u8 = @tagName(self.player.sides[0].id);
-        //        rl.drawText(rl.textFormat("Aktuelle Unterseite: 0. %f 1. %f ID: %s", .{ player.edges[0], player.edges[1], slice.ptr }), 10, 40, 20, .red);
-        //        const slice_anim: [:0]const u8 = @tagName(self.player.current_animation);
-        //        rl.drawText(rl.textFormat("Aktuelle Animation:  %s", .{slice_anim.ptr}), 10, 60, 20, .red);
-        //
-        // Overlay als letztes
         overlay.draw(self);
+        rl.endTextureMode();
     }
     fn draw_world_override_shader(self: *GameScene, shader: rl.Shader) void {
         const player: *Player = &self.player;
 
         {
-            const length: f32 = @floatFromInt(self.level.length);
-            const width: f32 = @floatFromInt(self.level.width);
-
-            Level.draw_2D_grid(.{ .x = 0.5, .y = 0, .z = 0.5 }, width, length, 1, false);
             self.level.draw_grid_shader(shader);
 
             const original_shader = player.model.materials[0].shader;
@@ -169,15 +164,8 @@ pub const GameScene = struct {
     fn draw_world(self: *GameScene) void {
         const player: *Player = &self.player;
 
-        {
-            const length: f32 = @floatFromInt(self.level.length);
-            const width: f32 = @floatFromInt(self.level.width);
-
-            Level.draw_2D_grid(.{ .x = 0.5, .y = 0, .z = 0.5 }, width, length, 1, false);
-            self.level.draw_grid();
-
-            rl.drawModel(player.model, player.origin, Blender_Unit_2_Raylib_Unit, .white);
-        }
+        self.level.draw_grid();
+        rl.drawModel(player.model, player.origin, Blender_Unit_2_Raylib_Unit, .white);
     }
 
     pub fn onCleanup(self: *GameScene, context: *SceneContext) anyerror!void {
