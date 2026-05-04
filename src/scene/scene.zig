@@ -1,6 +1,7 @@
 const std = @import("std");
 const SceneContext = @import("context.zig").SceneContext;
 const SceneId = @import("id.zig").SceneId;
+const rl = @import("raylib");
 
 pub const SceneError = error{
     OutOfMemory,
@@ -15,7 +16,7 @@ pub const Scene = struct {
 
     const VTable = struct {
         onStartup: *const fn (ptr: *anyopaque, context: *SceneContext) anyerror!void,
-        onUpdate: *const fn (ptr: *anyopaque, context: *SceneContext, delta_time: f32) anyerror!void,
+        onUpdate: *const fn (ptr: *anyopaque, context: *SceneContext, delta_time: f32, render_texture: rl.RenderTexture) anyerror!void,
         onCleanup: *const fn (ptr: *anyopaque, context: *SceneContext) anyerror!void,
         destroy: *const fn (ptr: *anyopaque, allocator: std.mem.Allocator) void,
     };
@@ -34,9 +35,9 @@ pub const Scene = struct {
                 try T.onStartup(self, context);
             }
 
-            fn onUpdate(ptr: *anyopaque, context: *SceneContext, delta_time: f32) !void {
+            fn onUpdate(ptr: *anyopaque, context: *SceneContext, delta_time: f32, render_texture: rl.RenderTexture) !void {
                 const self: *T = @ptrCast(@alignCast(ptr));
-                try T.onUpdate(self, context, delta_time);
+                try T.onUpdate(self, context, delta_time, render_texture);
             }
 
             fn onCleanup(ptr: *anyopaque, context: *SceneContext) !void {
@@ -74,8 +75,8 @@ pub const Scene = struct {
         self.is_initialized = true;
     }
 
-    pub fn onUpdate(self: *Scene, context: *SceneContext, delta_time: f32) !void {
-        try self.vtable.onUpdate(self.ptr, context, delta_time);
+    pub fn onUpdate(self: *Scene, context: *SceneContext, delta_time: f32, render_texture: rl.RenderTexture) !void {
+        try self.vtable.onUpdate(self.ptr, context, delta_time, render_texture);
     }
 
     pub fn onCleanup(self: *Scene, context: *SceneContext) !void {
@@ -100,7 +101,7 @@ pub const Scene = struct {
 fn validateScene(comptime T: type) void {
     const required_fns = .{
         .{ "onStartup", fn (*T, *SceneContext) anyerror!void },
-        .{ "onUpdate", fn (*T, *SceneContext, f32) anyerror!void },
+        .{ "onUpdate", fn (*T, *SceneContext, f32, rl.RenderTexture) anyerror!void },
         .{ "onCleanup", fn (*T, *SceneContext) anyerror!void },
     };
 

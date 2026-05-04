@@ -21,7 +21,7 @@ pub const Application = struct {
     window: *Window,
     allocator: std.mem.Allocator,
     time: Time,
-    render_texture: rl.RenderTexture2D,
+    render_texture: rl.RenderTexture,
 
     pub fn init(allocator: std.mem.Allocator, params: WindowParams) !*Application {
         const window = Window.init(allocator, params) catch |err| {
@@ -52,13 +52,10 @@ pub const Application = struct {
             const current_time = app.window.getTime();
             app.time.update(@floatCast(current_time));
 
-            app.beginVirtualFrame();
-            app.scene_manager.updateScene(app.time.delta_time) catch |err| {
-                app.endVirtualFrame();
+            app.scene_manager.updateScene(app.time.delta_time, app.render_texture) catch |err| {
                 std.log.err("Error updating Scene: {}", .{err});
                 continue;
             };
-            app.endVirtualFrame();
             app.presentVirtualFrame();
         }
     }
@@ -75,16 +72,6 @@ pub const Application = struct {
             std.log.err("Failed to push Scene: {}", .{err});
             return;
         };
-    }
-
-    fn beginVirtualFrame(self: *Application) void {
-        rl.beginTextureMode(self.render_texture);
-        rl.clearBackground(.black);
-    }
-
-    fn endVirtualFrame(self: *Application) void {
-        _ = self;
-        rl.endTextureMode();
     }
 
     fn presentVirtualFrame(self: *Application) void {

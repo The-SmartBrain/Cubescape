@@ -3,6 +3,7 @@ const SceneContext = @import("context.zig").SceneContext;
 const SceneId = @import("id.zig").SceneId;
 const Scene = @import("scene.zig").Scene;
 const Window = @import("../core/window.zig").Window;
+const rl = @import("raylib");
 
 pub const SceneManagerError = error{
     OutOfMemory,
@@ -76,10 +77,10 @@ pub const SceneManager = struct {
         }
     }
 
-    pub fn updateScene(self: *SceneManager, delta_time: f32) !void {
+    pub fn updateScene(self: *SceneManager, delta_time: f32, render_texture: rl.RenderTexture) !void {
         var context = self.makeContext();
         const active_scene = self.getActiveScene();
-        try active_scene.onUpdate(&context, delta_time);
+        try active_scene.onUpdate(&context, delta_time, render_texture);
     }
 
     pub fn initScene(self: *SceneManager) !void {

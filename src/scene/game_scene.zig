@@ -56,7 +56,9 @@ pub const GameScene = struct {
         self.current_moves = 0;
     }
 
-    pub fn onUpdate(self: *GameScene, context: *SceneContext, delta_time: f32) anyerror!void {
+    pub fn onUpdate(self: *GameScene, context: *SceneContext, delta_time: f32, render_texture: rl.RenderTexture) anyerror!void {
+        rl.beginTextureMode(render_texture);
+        defer rl.endTextureMode();
         // main Loop
         const player: *Player = &self.player;
 

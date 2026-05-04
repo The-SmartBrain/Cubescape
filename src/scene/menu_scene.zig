@@ -19,7 +19,9 @@ pub const MenuScene = struct {
         self.gear_angle_deg = 0.0;
     }
 
-    pub fn onUpdate(self: *MenuScene, context: *SceneContext, delta_time: f32) anyerror!void {
+    pub fn onUpdate(self: *MenuScene, context: *SceneContext, delta_time: f32, render_texture: rl.RenderTexture) anyerror!void {
+        rl.beginTextureMode(render_texture);
+        defer rl.endTextureMode();
         // main Loop
         const screen_w = 1920.0;
         const screen_h = 1080.0;

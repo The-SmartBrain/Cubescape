@@ -40,7 +40,9 @@ pub const EditorScene = struct {
         // Init Scene here --> Läuft EINMAL beim Start
     }
 
-    pub fn onUpdate(self: *EditorScene, context: *SceneContext, delta_time: f32) anyerror!void {
+    pub fn onUpdate(self: *EditorScene, context: *SceneContext, delta_time: f32, render_texture: rl.RenderTexture) anyerror!void {
+        rl.beginTextureMode(render_texture);
+        defer rl.endTextureMode();
         // main Loop
 
         _ = delta_time;
