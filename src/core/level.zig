@@ -27,6 +27,51 @@ pub const Level = struct {
         return .{ .x = x, .y = -0.5, .z = z };
     }
 
+    pub fn override_shader(self: *Level, shader: rl.Shader) void {
+        if (self.models == null) return;
+        var iter = self.models.?.iterator();
+        while (iter.next()) |entry| {
+            entry.value_ptr.materials[0].shader = shader;
+        }
+    }
+    pub fn draw_grid_shader(self: *Level, shader: rl.Shader) void {
+        for (self.grid orelse return, 0..) |row, i| {
+            for (row, 0..) |block, j| {
+                if (block.id != .empty) {
+                    const pos = self.idx_to_coord(i, j);
+                    if (self.models == null) {
+                        rl.drawCube(pos, 1, 1, 1, .red);
+                    } else {
+                        const model = self.models.?.get(block.id) orelse {
+                            rl.drawCube(pos, 1, 1, 1, .red);
+                            continue;
+                        };
+
+                        const original_shader = model.materials[0].shader;
+                        model.materials[0].shader = shader;
+                        rl.drawModel(model, pos, Blender_Unit_2_Raylib_Unit, .white);
+                        model.materials[0].shader = original_shader;
+                    }
+                }
+            }
+        }
+
+        var spawn = self.idx_to_coord(self.starting_point.x, self.starting_point.y);
+        spawn.y = 0;
+        if (self.models != null) {
+            const model = self.models.?.get(.spawn_point) orelse {
+                rl.drawCube(spawn, 1, 0.1, 1, .red);
+                return;
+            };
+            const original_shader = model.materials[0].shader;
+            model.materials[0].shader = shader;
+            rl.drawModel(model, spawn, Blender_Unit_2_Raylib_Unit, .white);
+            model.materials[0].shader = original_shader;
+        } else {
+            rl.drawCube(spawn, 1, 0.1, 1, .red);
+        }
+    }
+
     pub fn draw_grid(self: *Level) void {
         for (self.grid orelse return, 0..) |row, i| {
             for (row, 0..) |block, j| {

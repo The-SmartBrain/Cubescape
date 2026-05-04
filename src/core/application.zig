@@ -2,6 +2,7 @@ const std = @import("std");
 
 const SceneId = @import("../scene/id.zig").SceneId;
 const SceneManager = @import("../scene/manager.zig").SceneManager;
+const GlobalState = @import("../global_state.zig");
 
 const Time = @import("time.zig").Time;
 const win = @import("window.zig");
@@ -9,8 +10,8 @@ const rl = @import("raylib");
 
 const WindowParams = win.WindowParams;
 const Window = win.Window;
-const virtual_width: i32 = 1920;
-const virtual_height: i32 = 1080;
+const virtual_width: i32 = GlobalState.DrawWidth;
+const virtual_height: i32 = GlobalState.DrawHeight;
 
 pub const ApplicationError = error{
     WindowError,

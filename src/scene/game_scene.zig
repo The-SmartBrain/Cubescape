@@ -11,6 +11,9 @@ const Keybinds = @import("keybinds.zig");
 const overlay = @import("ingame_overlay.zig");
 const Blender_Unit_2_Raylib_Unit = Block.Blender_Unit_2_Raylib_Unit;
 const Blender_Unit_2_Raylib_Unit_Vec: rl.Vector3 = .{ .x = Blender_Unit_2_Raylib_Unit, .y = Blender_Unit_2_Raylib_Unit, .z = Blender_Unit_2_Raylib_Unit };
+const Normal_Vert_Shader_Path = "assets/shaders/normal.vert";
+const Normal_Frag_Shader_Path = "assets/shaders/normal.frag";
+const Outline_Frag_Shader_Path = "assets/shaders/outline.frag";
 
 // Zum Szenenwechsel:
 // try context.switchTo(SceneID.menu); // setzt Context zum Wechseln
@@ -24,6 +27,11 @@ pub const GameScene = struct {
     current_moves: u8,
     level: Level,
     keylist: Keybinds.BindList,
+
+    normalFBO: rl.RenderTexture,
+    sceneFBO: rl.RenderTexture,
+    normal_shader: rl.Shader,
+    outline_shader: rl.Shader,
     // Setting default values WILL NOT work because the scene struct is initialised using an allocator instead of the normal way,
     // every value is thus set to its 0 value;
 
@@ -52,13 +60,17 @@ pub const GameScene = struct {
 
         self.camera.update(self.player.origin);
 
+        self.normalFBO = try rl.loadRenderTexture(GlobalState.DrawWidth, GlobalState.DrawHeight);
+        self.sceneFBO = try rl.loadRenderTexture(GlobalState.DrawWidth, GlobalState.DrawHeight);
+        self.normal_shader = try rl.loadShader(Normal_Vert_Shader_Path, Normal_Frag_Shader_Path);
+        self.outline_shader = try rl.loadShader(null, Outline_Frag_Shader_Path);
+
         // Init Scene here --> Läuft EINMAL beim Start
         self.current_moves = 0;
     }
 
     pub fn onUpdate(self: *GameScene, context: *SceneContext, delta_time: f32, render_texture: rl.RenderTexture) anyerror!void {
-        rl.beginTextureMode(render_texture);
-        defer rl.endTextureMode();
+
         // main Loop
         const player: *Player = &self.player;
 
@@ -75,27 +87,67 @@ pub const GameScene = struct {
         try player.use_effect();
 
         self.camera.update(player.origin);
-
-        rl.clearBackground(.white);
-        {
+        // zig fmt: off
+        rl.beginTextureMode(self.normalFBO);
+            rl.clearBackground(.black);
             self.camera.begin();
-            defer self.camera.end();
+                rl.beginShaderMode(self.normal_shader);
+                    self.draw_world_override_shader(self.normal_shader);
+                rl.endShaderMode();
+            self.camera.end();
+        rl.endTextureMode();
+        // zig fmt: on
 
+        // zig fmt: off
+        rl.beginTextureMode(self.sceneFBO);
+            rl.clearBackground(.white);
+            self.camera.begin();
+                self.draw_world();
+            self.camera.end();
+        rl.endTextureMode();
+        // zig fmt: on
+
+        rl.beginTextureMode(render_texture);
+        rl.drawTextureRec(self.sceneFBO.texture, rl.Rectangle{ .x = 0, .y = 0, .width = GlobalState.DrawWidth, .height = -GlobalState.DrawHeight }, .zero(), .white);
+        rl.endTextureMode();
+
+        //        const slice: [:0]const u8 = @tagName(self.player.sides[0].id);
+        //        rl.drawText(rl.textFormat("Aktuelle Unterseite: 0. %f 1. %f ID: %s", .{ player.edges[0], player.edges[1], slice.ptr }), 10, 40, 20, .red);
+        //        const slice_anim: [:0]const u8 = @tagName(self.player.current_animation);
+        //        rl.drawText(rl.textFormat("Aktuelle Animation:  %s", .{slice_anim.ptr}), 10, 60, 20, .red);
+        //
+        // Overlay als letztes
+        overlay.draw(self);
+    }
+    fn draw_world_override_shader(self: *GameScene, shader: rl.Shader) void {
+        const player: *Player = &self.player;
+
+        {
             const length: f32 = @floatFromInt(self.level.length);
             const width: f32 = @floatFromInt(self.level.width);
+
+            Level.draw_2D_grid(.{ .x = 0.5, .y = 0, .z = 0.5 }, width, length, 1, false);
+            self.level.draw_grid_shader(shader);
+
+            const original_shader = player.model.materials[0].shader;
+            player.model.materials[0].shader = shader;
+            rl.drawModel(player.model, player.origin, Blender_Unit_2_Raylib_Unit, .white);
+            player.model.materials[0].shader = original_shader;
+        }
+    }
+
+    fn draw_world(self: *GameScene) void {
+        const player: *Player = &self.player;
+
+        {
+            const length: f32 = @floatFromInt(self.level.length);
+            const width: f32 = @floatFromInt(self.level.width);
+
             Level.draw_2D_grid(.{ .x = 0.5, .y = 0, .z = 0.5 }, width, length, 1, false);
             self.level.draw_grid();
 
             rl.drawModel(player.model, player.origin, Blender_Unit_2_Raylib_Unit, .white);
         }
-
-        const slice: [:0]const u8 = @tagName(self.player.sides[0].id);
-        rl.drawText(rl.textFormat("Aktuelle Unterseite: 0. %f 1. %f ID: %s", .{ player.edges[0], player.edges[1], slice.ptr }), 10, 40, 20, .red);
-        const slice_anim: [:0]const u8 = @tagName(self.player.current_animation);
-        rl.drawText(rl.textFormat("Aktuelle Animation:  %s", .{slice_anim.ptr}), 10, 60, 20, .red);
-
-        // Overlay als letztes
-        overlay.draw(self);
     }
 
     pub fn onCleanup(self: *GameScene, context: *SceneContext) anyerror!void {
@@ -103,6 +155,11 @@ pub const GameScene = struct {
         self.level.deinit(context.allocator);
         try self.player.deinit();
         self.keylist.deinit();
+
+        rl.unloadRenderTexture(self.normalFBO);
+        rl.unloadRenderTexture(self.sceneFBO);
+        rl.unloadShader(self.normal_shader);
+        rl.unloadShader(self.outline_shader);
     }
 
     fn getInput(self: *GameScene, context: *SceneContext) anyerror!bool {
