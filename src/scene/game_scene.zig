@@ -91,9 +91,7 @@ pub const GameScene = struct {
         rl.beginTextureMode(self.normalFBO);
             rl.clearBackground(.black);
             self.camera.begin();
-                rl.beginShaderMode(self.normal_shader);
-                    self.draw_world_override_shader(self.normal_shader);
-                rl.endShaderMode();
+                self.draw_world_override_shader(self.normal_shader);
             self.camera.end();
         rl.endTextureMode();
         // zig fmt: on
@@ -107,8 +105,40 @@ pub const GameScene = struct {
         rl.endTextureMode();
         // zig fmt: on
 
+        const normalLoc = rl.getShaderLocation(self.outline_shader, "normalTexture");
+        const colorLoc = rl.getShaderLocation(self.outline_shader, "colorTexture");
+        rl.setShaderValueTexture(self.outline_shader, normalLoc, self.normalFBO.texture);
+        rl.setShaderValueTexture(self.outline_shader, colorLoc, self.sceneFBO.texture);
+
+        // Set texel size
+        const texelSizeLoc = rl.getShaderLocation(self.outline_shader, "texelSize");
+        const texelSize = [2]f32{ 1.0 / @as(f32, @floatFromInt(GlobalState.DrawWidth)), 1.0 / @as(f32, @floatFromInt(GlobalState.DrawHeight)) };
+        rl.setShaderValue(self.outline_shader, texelSizeLoc, &texelSize, .vec2);
+
+        const thresholdLoc = rl.getShaderLocation(self.outline_shader, "threshold");
+        var threshold: f32 = 0.1;
+        rl.setShaderValue(self.outline_shader, thresholdLoc, &threshold, .float);
+
+        const outlineColorLoc = rl.getShaderLocation(self.outline_shader, "outlineColor");
+        const outlineColor = [4]f32{ 0.0, 0.0, 0.0, 1.0 };
+        rl.setShaderValue(self.outline_shader, outlineColorLoc, &outlineColor, .vec4);
+
         rl.beginTextureMode(render_texture);
+        rl.clearBackground(.black);
+        rl.beginShaderMode(self.outline_shader);
+
+        // Manually bind to known units
+        rl.gl.rlActiveTextureSlot(1);
+        rl.gl.rlEnableTexture(self.normalFBO.texture.id);
+        rl.setShaderValueTexture(self.outline_shader, normalLoc, self.normalFBO.texture);
+
+        rl.gl.rlActiveTextureSlot(2);
+        rl.gl.rlEnableTexture(self.sceneFBO.texture.id);
+        rl.setShaderValueTexture(self.outline_shader, colorLoc, self.sceneFBO.texture);
+
         rl.drawTextureRec(self.sceneFBO.texture, rl.Rectangle{ .x = 0, .y = 0, .width = GlobalState.DrawWidth, .height = -GlobalState.DrawHeight }, .zero(), .white);
+
+        rl.endShaderMode();
         rl.endTextureMode();
 
         //        const slice: [:0]const u8 = @tagName(self.player.sides[0].id);
