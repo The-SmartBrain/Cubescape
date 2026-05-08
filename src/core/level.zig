@@ -16,6 +16,7 @@ pub const Level = struct {
     id: LevelID,
     starting_point: Vec2,
     finish: Vec2,
+    light_pos: rl.Vector3,
 
     grid: ?[][]Block,
     models: ?BlockModels,
@@ -111,6 +112,7 @@ pub const Level = struct {
             .id = id,
             .width = width,
             .length = length,
+            .light_pos = .zero(),
             .grid = try init_grid(length, width, alloator),
             .models = BlockModels.init(alloator),
             // zif fmt: onn
@@ -296,6 +298,7 @@ pub const Level = struct {
         starting_point: Vec2,
         finish: Vec2,
         grid: [][]Block,
+        light_pos: rl.Vector3,
     };
 
     fn toData(level: Level) LevelData {
@@ -306,6 +309,7 @@ pub const Level = struct {
             .starting_point = level.starting_point,
             .finish = level.finish,
             .grid = level.grid.?,
+            .light_pos = level.light_pos,
         };
     }
     pub fn fromData(data: LevelData) Level {
@@ -317,6 +321,7 @@ pub const Level = struct {
             .finish = data.finish,
             .grid = data.grid,
             .models = null,
+            .light_pos = data.light_pos,
         };
         return level;
     }

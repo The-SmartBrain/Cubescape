@@ -3,11 +3,12 @@ in vec2 fragTexCoord;
 out vec4 outColor;
 
 uniform sampler2D normalTexture;
-uniform sampler2D colorTexture;   // your actual rendered scene
-uniform vec2 texelSize;           // 1.0/screenWidth, 1.0/screenHeight
-uniform float threshold;          // e.g. 0.1
-uniform vec4 outlineColor;        // e.g. black
-uniform bool useMask;        // toggle
+uniform sampler2D colorTexture;
+uniform sampler2D ambientTexture;
+uniform vec2 texelSize;
+uniform float threshold;
+uniform vec4 outlineColor;
+float ambientStrength = 1;      // e.g. 0.5 — control blend from CPU side
 
 void main() {
     vec2 uv = fragTexCoord;
@@ -22,13 +23,15 @@ void main() {
     // Measure normal divergence
     float edge = 0.0;
     edge += length(nR - nL);
-
+    edge += length(nU - nD);        // also add vertical edges — you were missing this
     edge = smoothstep(threshold, threshold + 0.1, edge);
 
-    vec4 sceneColor = texture(colorTexture, uv);
-    if (useMask) {
-      outColor = mix(vec4(0,0,0,0),outlineColor,edge); 
-    } else {
-      outColor = mix(sceneColor, outlineColor, edge);
-    }
+    // Scene + ambient
+    vec4 sceneColor  = texture(colorTexture,   uv);
+    vec4 ambientMap  = texture(ambientTexture,  uv);
+
+    // Multiply ambient onto scene (standard ambient occlusion / light map blend)
+    vec4 litScene = vec4(sceneColor.rgb * (1.0 + ambientMap.rgb * ambientStrength), sceneColor.a);
+
+    outColor = mix(litScene, outlineColor, edge);
 }

@@ -14,6 +14,8 @@ const Blender_Unit_2_Raylib_Unit_Vec: rl.Vector3 = .{ .x = Blender_Unit_2_Raylib
 const Normal_Vert_Shader_Path = "assets/shaders/normal.vert";
 const Normal_Frag_Shader_Path = "assets/shaders/normal.frag";
 const Outline_Frag_Shader_Path = "assets/shaders/outline.frag";
+const Ambient_Vert_Shader_Path = "assets/shaders/ambient.vert";
+const Ambient_Frag_Shader_Path = "assets/shaders/ambient.frag";
 
 // Zum Szenenwechsel:
 // try context.switchTo(SceneID.menu); // setzt Context zum Wechseln
@@ -27,11 +29,14 @@ pub const GameScene = struct {
     current_moves: u8,
     level: Level,
     keylist: Keybinds.BindList,
+    time: f32,
 
     normalFBO: rl.RenderTexture,
+    ambientFBO: rl.RenderTexture,
     sceneFBO: rl.RenderTexture,
     normal_shader: rl.Shader,
     outline_shader: rl.Shader,
+    ambient_shader: rl.Shader,
     // Setting default values WILL NOT work because the scene struct is initialised using an allocator instead of the normal way,
     // every value is thus set to its 0 value;
 
@@ -40,6 +45,7 @@ pub const GameScene = struct {
 
         self.allocator = context.allocator;
 
+        self.time = 0.0;
         self.camera = .init(Camera.Default_Distance, 35, rl.Vector3.zero());
         self.camera.follow_fn = Camera.simple_follow;
 
@@ -50,6 +56,8 @@ pub const GameScene = struct {
             try context.switchTo(SceneId.menu);
             return;
         };
+
+        self.level.light_pos = .{ .x = 0, .y = 10, .z = 10 };
         self.keylist = try .import_init("game_binds", self.allocator);
 
         self.player.origin = self.level.idx_to_coord(self.level.starting_point.x, self.level.starting_point.y);
@@ -62,14 +70,17 @@ pub const GameScene = struct {
 
         self.normalFBO = try rl.loadRenderTexture(GlobalState.DrawWidth, GlobalState.DrawHeight);
         self.sceneFBO = try rl.loadRenderTexture(GlobalState.DrawWidth, GlobalState.DrawHeight);
+        self.ambientFBO = try rl.loadRenderTexture(GlobalState.DrawWidth, GlobalState.DrawHeight);
         self.normal_shader = try rl.loadShader(Normal_Vert_Shader_Path, Normal_Frag_Shader_Path);
         self.outline_shader = try rl.loadShader(null, Outline_Frag_Shader_Path);
+        self.ambient_shader = try rl.loadShader(Ambient_Vert_Shader_Path, Ambient_Frag_Shader_Path);
 
         // Init Scene here --> Läuft EINMAL beim Start
         self.current_moves = 0;
     }
 
     pub fn onUpdate(self: *GameScene, context: *SceneContext, delta_time: f32, render_texture: rl.RenderTexture) anyerror!void {
+        self.time += delta_time;
 
         // main Loop
         const player: *Player = &self.player;
@@ -87,7 +98,8 @@ pub const GameScene = struct {
         try player.use_effect();
 
         self.camera.update(player.origin);
-
+        self.level.light_pos.z = @sin(self.time) * 10.0;
+        self.level.light_pos.x = @cos(self.time) * 10.0;
         try self.handle_draw(render_texture);
     }
 
@@ -99,6 +111,20 @@ pub const GameScene = struct {
         self.camera.end();
         rl.endTextureMode();
 
+        const ambientColor_loc = rl.getShaderLocation(self.ambient_shader, "ambientColor");
+        const ambient_color: [3]f32 = .{ 1.0, 1.0, 1.0 };
+        rl.setShaderValue(self.ambient_shader, ambientColor_loc, &ambient_color, .vec3);
+
+        const lightPostion_loc = rl.getShaderLocation(self.ambient_shader, "lightPosition");
+        rl.setShaderValue(self.ambient_shader, lightPostion_loc, &self.level.light_pos, .vec3);
+
+        rl.beginTextureMode(self.ambientFBO);
+        rl.clearBackground(.black);
+        self.camera.begin();
+        self.draw_world_override_shader(self.ambient_shader);
+        self.camera.end();
+
+        rl.endTextureMode();
         rl.beginTextureMode(self.sceneFBO);
         rl.clearBackground(.white);
         self.camera.begin();
@@ -108,8 +134,10 @@ pub const GameScene = struct {
 
         const normalLoc = rl.getShaderLocation(self.outline_shader, "normalTexture");
         const colorLoc = rl.getShaderLocation(self.outline_shader, "colorTexture");
+        const ambientLoc = rl.getShaderLocation(self.outline_shader, "ambientTexture");
         rl.setShaderValueTexture(self.outline_shader, normalLoc, self.normalFBO.texture);
         rl.setShaderValueTexture(self.outline_shader, colorLoc, self.sceneFBO.texture);
+        rl.setShaderValueTexture(self.outline_shader, ambientLoc, self.ambientFBO.texture);
 
         // Set texel size
         const texelSizeLoc = rl.getShaderLocation(self.outline_shader, "texelSize");
@@ -124,10 +152,6 @@ pub const GameScene = struct {
         const outlineColor = [4]f32{ 0.3, 0.5, 0.8, 1.0 };
         rl.setShaderValue(self.outline_shader, outlineColorLoc, &outlineColor, .vec4);
 
-        const maskLoc = rl.getShaderLocation(self.outline_shader, "useMask");
-        const mask: bool = self.player.hidden;
-        rl.setShaderValue(self.outline_shader, maskLoc, &mask, .int);
-
         rl.beginTextureMode(render_texture);
         rl.clearBackground(.black);
         rl.beginShaderMode(self.outline_shader);
@@ -140,6 +164,10 @@ pub const GameScene = struct {
         rl.gl.rlActiveTextureSlot(2);
         rl.gl.rlEnableTexture(self.sceneFBO.texture.id);
         rl.setShaderValueTexture(self.outline_shader, colorLoc, self.sceneFBO.texture);
+
+        rl.gl.rlActiveTextureSlot(3);
+        rl.gl.rlEnableTexture(self.ambientFBO.texture.id);
+        rl.setShaderValueTexture(self.outline_shader, ambientLoc, self.ambientFBO.texture);
 
         rl.drawTextureRec(self.sceneFBO.texture, rl.Rectangle{ .x = 0, .y = 0, .width = GlobalState.DrawWidth, .height = -GlobalState.DrawHeight }, .zero(), .white);
 
@@ -166,6 +194,7 @@ pub const GameScene = struct {
 
         self.level.draw_grid();
         rl.drawModel(player.model, player.origin, Blender_Unit_2_Raylib_Unit, .white);
+        rl.drawCircle3D(self.level.light_pos, 1, .zero(), 0, .red);
     }
 
     pub fn onCleanup(self: *GameScene, context: *SceneContext) anyerror!void {
@@ -178,6 +207,7 @@ pub const GameScene = struct {
         rl.unloadRenderTexture(self.sceneFBO);
         rl.unloadShader(self.normal_shader);
         rl.unloadShader(self.outline_shader);
+        rl.unloadShader(self.ambient_shader);
     }
 
     fn getInput(self: *GameScene, context: *SceneContext) anyerror!bool {
